@@ -1,0 +1,15 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Cook Sync
+GenericName=Recipe Sync Agent
+Comment=Sync recipes with Cook.md cloud service
+Icon=cook-sync
+Exec=cook-sync start
+Terminal=false
+Categories=Utility;FileTransfer;Network;
+Keywords=sync;recipes;cooking;cloud;cooklang;
+StartupNotify=true
+DBusActivatable=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

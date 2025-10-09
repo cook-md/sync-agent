@@ -1,0 +1,25 @@
+# Cargo configuration for cook-sync
+
+[build]
+# Incremental compilation (disabled for CI, enabled for local dev)
+incremental = false
+
+[profile.dev]
+# Faster debug builds
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+
+[profile.release]
+# Optimize for size and performance
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true  # Strip symbols
+
+# Include debug info for better crash reports (Sentry)
+debug = true
+
+# Windows-specific: statically link the MSVC runtime to avoid VCRUNTIME140.dll dependency
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

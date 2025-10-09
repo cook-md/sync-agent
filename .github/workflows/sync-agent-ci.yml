@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'sync-agent/**'
+      - '.github/workflows/sync-agent-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sync-agent/**'
+      - '.github/workflows/sync-agent-ci.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest] #windows-latest, macOS
+        
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
+      - name: Setup Rust cache
+        id: rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: sync-agent -> target
+          prefix-key: v2-rust
+          shared-key: sync-agent-${{ matrix.os }}-debug
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST RUSTFLAGS
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
+
+      - name: Report cache status
+        run: |
+          echo "Cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          if [ "${{ steps.rust-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Full cache hit - dependencies won't recompile"
+          else
+            echo "⚠️ Cache miss or partial hit - some dependencies may recompile"
+          fi
+
+      - name: Install Linux dependencies
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libappindicator3-dev libxdo-dev
+
+      - name: Check formatting
+        working-directory: sync-agent
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        working-directory: sync-agent
+        run: cargo clippy -- -D warnings
+
+      - name: Run tests
+        working-directory: sync-agent
+        run: cargo test
+
+      - name: Build
+        working-directory: sync-agent
+        run: cargo build --verbose
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats

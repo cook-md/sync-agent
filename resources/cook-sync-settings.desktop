@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Cook Sync Settings
+GenericName=Recipe Sync Configuration
+Comment=Configure Cook Sync recipe synchronization
+Icon=cook-sync
+Exec=cook-sync config
+Terminal=false
+Categories=Settings;Utility;
+Keywords=settings;config;sync;recipes;
+NoDisplay=false
+StartupNotify=true

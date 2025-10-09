@@ -1,0 +1,32 @@
+name: Release Please (Sync Agent)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sync-agent/**'
+      - '.github/workflows/sync-agent-*'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs['sync-agent--release_created'] }}
+      tag_name: ${{ steps.release.outputs['sync-agent--tag_name'] }}
+      version: ${{ steps.release.outputs['sync-agent--version'] }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          # Use PAT if available to trigger package build workflow
+          # Otherwise falls back to GITHUB_TOKEN (which won't trigger other workflows)
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
