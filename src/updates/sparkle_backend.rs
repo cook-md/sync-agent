@@ -134,14 +134,17 @@ pub struct SparkleBackend;
 
 #[cfg(not(target_os = "macos"))]
 impl SparkleBackend {
+    #[allow(dead_code)]
     pub fn new() -> anyhow::Result<Self> {
         anyhow::bail!("Sparkle backend is only available on macOS")
     }
 
+    #[allow(dead_code)]
     pub async fn check(&self) -> anyhow::Result<bool> {
         Ok(false)
     }
 
+    #[allow(dead_code)]
     pub async fn install(&self) -> anyhow::Result<()> {
         Ok(())
     }

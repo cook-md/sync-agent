@@ -8,6 +8,9 @@ repository = "https://github.com/cook-md/sync-agent"
 homepage = "https://cook.md"
 license = "MIT"
 
+[lints.rust]
+unexpected_cfgs = "allow"
+
 [package.metadata.wix]
 upgrade-guid = "F94AFCD5-DDF8-4A2C-BFE3-CD390FBC45B8"
 path-guid = "9A825CC4-2647-4DFD-BCB7-CA6BD0AFEC57"

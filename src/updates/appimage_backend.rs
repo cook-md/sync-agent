@@ -75,21 +75,22 @@ impl AppImageBackend {
 }
 
 // Stub implementation for non-Linux platforms
-#[allow(dead_code)]
 #[cfg(not(target_os = "linux"))]
 pub struct AppImageBackend;
 
-#[allow(dead_code)]
 #[cfg(not(target_os = "linux"))]
 impl AppImageBackend {
+    #[allow(dead_code)]
     pub fn new() -> anyhow::Result<Self> {
         anyhow::bail!("AppImage backend is only available on Linux")
     }
 
+    #[allow(dead_code)]
     pub async fn check(&self) -> anyhow::Result<bool> {
         Ok(false)
     }
 
+    #[allow(dead_code)]
     pub async fn install(&self) -> anyhow::Result<()> {
         Ok(())
     }
