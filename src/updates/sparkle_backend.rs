@@ -3,7 +3,9 @@
 #![allow(deprecated)]
 #![allow(unexpected_cfgs)]
 
+#[cfg(target_os = "macos")]
 use anyhow::Result;
+#[cfg(target_os = "macos")]
 use log::{info, warn};
 
 #[cfg(target_os = "macos")]

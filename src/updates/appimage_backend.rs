@@ -1,7 +1,7 @@
 #[cfg(target_os = "linux")]
 use anyhow::{Context, Result};
 #[cfg(target_os = "linux")]
-use log::{info, warn};
+use log::info;
 #[cfg(target_os = "linux")]
 use std::path::PathBuf;
 #[cfg(target_os = "linux")]
