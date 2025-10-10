@@ -117,7 +117,8 @@
       "Bash(dist:*)",
       "Bash(apt-cache:*)",
       "WebFetch(domain:www.mistys-internet.website)",
-      "Bash(ruby:*)"
+      "Bash(ruby:*)",
+      "Bash(yq eval:*)"
     ],
     "deny": [],
     "ask": []
