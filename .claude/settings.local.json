@@ -114,7 +114,10 @@
       "Bash(./scripts/generate-sparkle-keys.sh:*)",
       "Bash(/tmp/sparkle.app/Contents/MacOS/sparkle:*)",
       "Bash(./scripts/generate-sparkle-keys-openssl.sh:*)",
-      "Bash(dist:*)"
+      "Bash(dist:*)",
+      "Bash(apt-cache:*)",
+      "WebFetch(domain:www.mistys-internet.website)",
+      "Bash(ruby:*)"
     ],
     "deny": [],
     "ask": []
