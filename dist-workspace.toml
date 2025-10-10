@@ -17,3 +17,10 @@ publish-jobs = ["homebrew"]
 install-updater = true
 # Homebrew tap to publish to
 tap = "Cooklang/homebrew-tap"
+
+# System dependencies for Linux builds
+[dist.dependencies.apt]
+libglib2.0-dev = "*"
+libgtk-3-dev = "*"
+libappindicator3-dev = "*"
+libxdo-dev = "*"

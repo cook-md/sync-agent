@@ -135,6 +135,25 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
             echo "$HOME/.cargo/bin" >> $GITHUB_PATH
           fi
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+      - name: Setup Rust cache
+        id: rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: v2-rust
+          shared-key: sync-agent-${{ matrix.runner }}-dist
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST RUSTFLAGS
+          cache-on-failure: true
+          save-if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+      - name: Report cache status
+        run: |
+          echo "Cache hit: ${{ steps.rust-cache.outputs.cache-hit }}"
+          if [ "${{ steps.rust-cache.outputs.cache-hit }}" = "true" ]; then
+            echo "✅ Full cache hit - dependencies won't recompile"
+          else
+            echo "⚠️ Cache miss or partial hit - some dependencies may recompile"
+          fi
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
@@ -172,6 +191,9 @@ jobs:
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
 
   # Build and package all the platform-agnostic(ish) things
   build-global-artifacts:
