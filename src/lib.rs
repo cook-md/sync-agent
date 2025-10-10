@@ -1,6 +1,10 @@
 // Library module for cook-sync
 // This allows modules to be used in tests and other binaries
 
+// Allow dead code for platform-specific implementations
+// Each platform (Linux/macOS/Windows) has exclusive code paths
+#![allow(dead_code)]
+
 pub mod api;
 pub mod appimage_integration;
 pub mod auth;
