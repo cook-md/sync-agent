@@ -11,12 +11,18 @@ ci = "github"
 installers = ["shell", "powershell", "homebrew", "msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
-# Whether to auto-publish releases to package managers
+# Publish jobs to run in CI
 publish-jobs = ["homebrew"]
-# Generate installer update receipts for axoupdater
+# Whether to install an updater program
 install-updater = true
-# Homebrew tap to publish to
+# A GitHub repo to push Homebrew formulas to
 tap = "Cooklang/homebrew-tap"
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+
+# Use native ARM64 runners for ARM64 Linux builds (free in public repos)
+[dist.github-custom-runners]
+aarch64-unknown-linux-gnu = "ubuntu-22.04-arm"
 
 # System dependencies for Linux builds
 [dist.dependencies.apt]

@@ -1,4 +1,4 @@
-name: Release Please (Sync Agent)
+name: Release Please
 
 on:
   push:
