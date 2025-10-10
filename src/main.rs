@@ -493,14 +493,16 @@ async fn configure(
 async fn check_update() -> Result<()> {
     println!("Checking for updates...");
 
-    let update_manager = updates::UpdateManager::new()
-        .map_err(|e| error::SyncError::Update(format!("Failed to initialize update manager: {}", e)))?;
+    let update_manager = updates::UpdateManager::new().map_err(|e| {
+        error::SyncError::Update(format!("Failed to initialize update manager: {}", e))
+    })?;
 
     match update_manager.check_for_updates().await {
         Ok(true) => {
             println!("Update available! Starting installation...");
-            update_manager.install_update().await
-                .map_err(|e| error::SyncError::Update(format!("Failed to install update: {}", e)))?;
+            update_manager.install_update().await.map_err(|e| {
+                error::SyncError::Update(format!("Failed to install update: {}", e))
+            })?;
             println!("Update installation completed successfully.");
         }
         Ok(false) => {
@@ -508,7 +510,10 @@ async fn check_update() -> Result<()> {
         }
         Err(e) => {
             error!("Failed to check for updates: {}", e);
-            return Err(error::SyncError::Update(format!("Failed to check for updates: {}", e)));
+            return Err(error::SyncError::Update(format!(
+                "Failed to check for updates: {}",
+                e
+            )));
         }
     }
 

@@ -4,11 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'sync-agent/**'
-      - '.github/workflows/sync-agent-*'
-      - 'release-please-config.json'
-      - '.release-please-manifest.json'
 
 permissions:
   contents: write
@@ -18,9 +13,12 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs['sync-agent--release_created'] }}
-      tag_name: ${{ steps.release.outputs['sync-agent--tag_name'] }}
-      version: ${{ steps.release.outputs['sync-agent--version'] }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      major: ${{ steps.release.outputs.major }}
+      minor: ${{ steps.release.outputs.minor }}
+      patch: ${{ steps.release.outputs.patch }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release

@@ -1,11 +1,11 @@
 use anyhow::Result;
 use log::info;
 
+#[cfg(target_os = "linux")]
+use super::appimage_backend::AppImageBackend;
 use super::axo_backend::AxoUpdaterBackend;
 #[cfg(target_os = "macos")]
 use super::sparkle_backend::SparkleBackend;
-#[cfg(target_os = "linux")]
-use super::appimage_backend::AppImageBackend;
 
 pub enum UpdateBackend {
     AxoUpdater(AxoUpdaterBackend),
@@ -30,9 +30,7 @@ impl UpdateManager {
         #[cfg(target_os = "linux")]
         if std::env::var("APPIMAGE").is_ok() {
             info!("Detected AppImage, using AppImageUpdate backend");
-            return Ok(UpdateBackend::AppImageUpdate(
-                AppImageBackend::new()?
-            ));
+            return Ok(UpdateBackend::AppImageUpdate(AppImageBackend::new()?));
         }
 
         // macOS: Check if running from .app bundle
@@ -60,9 +58,7 @@ impl UpdateManager {
 
         // Default: axoupdater (shell, PowerShell, MSI, Homebrew)
         info!("Using axoupdater backend");
-        Ok(UpdateBackend::AxoUpdater(
-            AxoUpdaterBackend::new()?
-        ))
+        Ok(UpdateBackend::AxoUpdater(AxoUpdaterBackend::new()?))
     }
 
     pub async fn check_for_updates(&self) -> Result<bool> {

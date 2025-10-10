@@ -1,3 +1,8 @@
+// Allow deprecated warnings from cocoa crate - we plan to migrate to objc2 in the future
+// Also allow unexpected_cfgs from objc crate macros
+#![allow(deprecated)]
+#![allow(unexpected_cfgs)]
+
 use anyhow::Result;
 use log::{info, warn};
 

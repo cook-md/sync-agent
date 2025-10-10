@@ -15,8 +15,8 @@ pub struct AppImageBackend {
 #[cfg(target_os = "linux")]
 impl AppImageBackend {
     pub fn new() -> Result<Self> {
-        let appimage_path = std::env::var("APPIMAGE")
-            .context("APPIMAGE environment variable not set")?;
+        let appimage_path =
+            std::env::var("APPIMAGE").context("APPIMAGE environment variable not set")?;
 
         let path = PathBuf::from(appimage_path);
 
@@ -24,7 +24,9 @@ impl AppImageBackend {
             anyhow::bail!("AppImage path does not exist: {:?}", path);
         }
 
-        Ok(Self { appimage_path: path })
+        Ok(Self {
+            appimage_path: path,
+        })
     }
 
     pub async fn check(&self) -> Result<bool> {
