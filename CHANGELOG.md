@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.3.8...cook-sync-v0.4.0) (2025-10-10)
+
+
+### Features
+
+* first commit ([760e865](https://github.com/cook-md/sync-agent/commit/760e8653421f3b392967b19abb6bb1643b9cde83))
+
+
+### Bug Fixes
+
+* ci jobs ([1a2ab8c](https://github.com/cook-md/sync-agent/commit/1a2ab8c25de3e2e0a571ad567a6190aaa06dc054))
+* ci jobs ([a72074e](https://github.com/cook-md/sync-agent/commit/a72074e5fbdc009eeecc821e862cb99bb6d182b2))
+* ci jobs ([6f7c284](https://github.com/cook-md/sync-agent/commit/6f7c2849d86081086376924d7de1ff732e230187))
+* ci jobs ([200b4da](https://github.com/cook-md/sync-agent/commit/200b4da3d67ce004c8eee527ec17799d329786ac))
+* ci jobs ([2df2d61](https://github.com/cook-md/sync-agent/commit/2df2d61faec525302c362347cc2eea9954071653))
+* ci jobs ([0273d59](https://github.com/cook-md/sync-agent/commit/0273d5992372ddc12fb937102decef8dad15e915))
+
 ## [0.3.8](https://github.com/cooklang/thereciper/compare/cook-sync-v0.3.7...cook-sync-v0.3.8) (2025-10-05)
 
 

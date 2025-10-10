@@ -1083,7 +1083,7 @@ checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
 name = "cook-sync"
-version = "0.3.8"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "auto-launch",
