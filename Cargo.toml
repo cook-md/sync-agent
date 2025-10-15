@@ -111,3 +111,15 @@ embed-resource = "3"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# System dependencies for cargo-dist
+[package.metadata.dist.dependencies.apt]
+pkg-config = "*"
+libglib2.0-dev = "*"
+libgtk-3-dev = "*"
+libappindicator3-dev = "*"
+libxdo-dev = "*"
+libatk1.0-dev = "*"
+libgdk-pixbuf2.0-dev = "*"
+libcairo2-dev = "*"
+libpango1.0-dev = "*"
