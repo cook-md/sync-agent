@@ -119,7 +119,13 @@
       "WebFetch(domain:www.mistys-internet.website)",
       "Bash(ruby:*)",
       "Bash(yq eval:*)",
-      "Bash(yamllint:*)"
+      "Bash(yamllint:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)"
     ],
     "deny": [],
     "ask": []
