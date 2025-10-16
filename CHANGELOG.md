@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.1](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.0...cook-sync-v0.4.1) (2025-10-16)
+
+
+### Bug Fixes
+
+* release ([741c019](https://github.com/cook-md/sync-agent/commit/741c0193a53a59fa9552e56ded9a64c71f84555b))
+* release ([8ddb547](https://github.com/cook-md/sync-agent/commit/8ddb547ac1a130b7696a92afba06f464eb2e5f9d))
+* release ([7a0edcd](https://github.com/cook-md/sync-agent/commit/7a0edcdc893ef6bbdb5e92e394b79d85a444117a))
+* release ([2ad5e03](https://github.com/cook-md/sync-agent/commit/2ad5e039dec752b2682589c12bedb2bb0fd03760))
+* release ([02f3786](https://github.com/cook-md/sync-agent/commit/02f37867d232d98430e44f4773ff24c030a109bf))
+* release ([aafb760](https://github.com/cook-md/sync-agent/commit/aafb76034cc0e9a81dad7708d9357a991b21b1d3))
+* release ([5d9fe98](https://github.com/cook-md/sync-agent/commit/5d9fe9879c71439a51a18b50291f3121fa20d336))
+* release ([9070bc1](https://github.com/cook-md/sync-agent/commit/9070bc1c37e9e42c1535c2e27074b581afc09383))
+* release ([b6c218a](https://github.com/cook-md/sync-agent/commit/b6c218a805ea9a970d2ec0be6e35017f3a232ad0))
+
 ## [0.4.0](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.3.8...cook-sync-v0.4.0) (2025-10-10)
 
 
