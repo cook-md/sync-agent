@@ -126,7 +126,8 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "WebFetch(domain:docs.crabnebula.dev)"
     ],
     "deny": [],
     "ask": []

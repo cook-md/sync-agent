@@ -6,7 +6,6 @@ use crate::config::Config;
 use crate::error::{Result, SyncError};
 use crate::platform::{ThemeChange, ThemeWatcher};
 use crate::sync::{SyncManager, SyncStatus};
-use crate::updates::UpdateManager;
 use log::{debug, error, info, trace};
 use menu::TrayMenu;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -235,67 +234,54 @@ impl SystemTray {
                     TrayEvent::CheckUpdates => {
                         info!("Manual update check requested");
 
+                        // Show immediate feedback
+                        let _ = crate::notifications::show_notification(
+                            "Cook Sync",
+                            "Checking for updates...",
+                        );
+
                         // Spawn async task to check for updates
-                        tokio::spawn(async move {
-                            info!("Creating update manager for manual check");
-                            match UpdateManager::new() {
-                                Ok(manager) => {
-                                    match manager.check_for_updates().await {
-                                        Ok(true) => {
-                                            info!(
-                                                "Update available for v{}",
-                                                env!("CARGO_PKG_VERSION")
-                                            );
+                        let config_clone = Arc::clone(&config);
+                        runtime_handle.clone().spawn(async move {
+                            // Get auto_update setting
+                            let auto_update = config_clone
+                                .settings()
+                                .lock()
+                                .unwrap()
+                                .auto_update;
 
-                                            // Trigger the update installation
-                                            if let Err(e) = manager.install_update().await {
-                                                error!("Failed to install update: {}", e);
-                                                // Show user notification about the error
-                                                let _ = crate::notifications::show_notification(
-                                                    "Cook Sync Update",
-                                                    &format!("Failed to install update: {}", e),
-                                                );
-                                            } else {
-                                                // Notify user that update is being installed
-                                                let _ = crate::notifications::show_notification(
-                                                    "Cook Sync Update",
-                                                    "Update available! Installation initiated.",
-                                                );
-                                            }
-                                        }
-                                        Ok(false) => {
-                                            info!(
-                                                "Already up to date (current version: {})",
-                                                env!("CARGO_PKG_VERSION")
-                                            );
-
-                                            // Notify user that they're up to date
-                                            let _ = crate::notifications::show_notification(
-                                                "Cook Sync",
-                                                &format!(
-                                                    "Cook Sync is up to date (v{})",
-                                                    env!("CARGO_PKG_VERSION")
-                                                ),
-                                            );
-                                        }
-                                        Err(e) => {
-                                            error!("Update check failed: {}", e);
-
-                                            // Show user notification about the error
-                                            let _ = crate::notifications::show_notification(
-                                                "Cook Sync Update",
-                                                &format!("Failed to check for updates: {}", e),
-                                            );
-                                        }
+                            // Check for updates
+                            match crate::updater::check_for_updates(auto_update).await {
+                                Ok(Some(version)) => {
+                                    if auto_update {
+                                        let _ = crate::notifications::show_notification(
+                                            "Cook Sync Update",
+                                            &format!(
+                                                "Update to version {} has been downloaded and will be installed on next restart.",
+                                                version
+                                            ),
+                                        );
+                                    } else {
+                                        let _ = crate::notifications::show_notification(
+                                            "Cook Sync Update Available",
+                                            &format!(
+                                                "Version {} is available. Enable auto-update in settings to install automatically.",
+                                                version
+                                            ),
+                                        );
                                     }
                                 }
-                                Err(e) => {
-                                    error!("Failed to create update manager: {}", e);
-
-                                    // Show user notification about the error
+                                Ok(None) => {
                                     let _ = crate::notifications::show_notification(
-                                        "Cook Sync Update",
-                                        &format!("Failed to initialize update check: {}", e),
+                                        "Cook Sync",
+                                        "You are running the latest version.",
+                                    );
+                                }
+                                Err(e) => {
+                                    error!("Update check failed: {}", e);
+                                    let _ = crate::notifications::show_notification(
+                                        "Cook Sync Update Check Failed",
+                                        &format!("Failed to check for updates: {}", e),
                                     );
                                 }
                             }

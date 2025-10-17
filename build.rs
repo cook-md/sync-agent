@@ -1,50 +1,43 @@
+// Build script to embed the public key at compile time
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+
 fn main() {
-    // Optional: Set build profile configuration flags
-    // This allows for more fine-grained control beyond debug_assertions
-    let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+    // Read the public key from .signing-key.pem.pub
+    // This file should be generated using: cargo packager signer generate
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let pubkey_path = PathBuf::from(&manifest_dir).join(".signing-key.pem.pub");
 
-    // Set custom configuration flags based on build profile
-    match profile.as_str() {
-        "release" => {
-            println!("cargo:rustc-cfg=production_build");
+    // Check if CARGO_PACKAGER_PUBLIC_KEY is already set (e.g., in CI/CD)
+    if env::var("CARGO_PACKAGER_PUBLIC_KEY").is_err() {
+        // If not set, try to read from file
+        if pubkey_path.exists() {
+            let pubkey =
+                fs::read_to_string(&pubkey_path).expect("Failed to read .signing-key.pem.pub");
+            let pubkey = pubkey.trim();
+
+            // Set the environment variable for the compiler
+            println!("cargo:rustc-env=CARGO_PACKAGER_PUBLIC_KEY={}", pubkey);
+            println!("cargo:rerun-if-changed={}", pubkey_path.display());
+        } else {
+            // In development, use a dummy key
+            // In production/CI, this should be set via environment variable
+            eprintln!(
+                "Warning: No .signing-key.pem.pub found and CARGO_PACKAGER_PUBLIC_KEY not set"
+            );
+            eprintln!("Using dummy public key for development builds");
+            println!("cargo:rustc-env=CARGO_PACKAGER_PUBLIC_KEY=DUMMY_KEY_FOR_DEV");
         }
-        "debug" => {
-            println!("cargo:rustc-cfg=development_build");
-        }
-        _ => {
-            // For custom profiles, check if they're release-like
-            let opt_level = std::env::var("OPT_LEVEL").unwrap_or_else(|_| "0".to_string());
-            if opt_level != "0" {
-                println!("cargo:rustc-cfg=production_build");
-            } else {
-                println!("cargo:rustc-cfg=development_build");
-            }
-        }
+    } else {
+        // Use the environment variable directly
+        let pubkey = env::var("CARGO_PACKAGER_PUBLIC_KEY").unwrap();
+        println!("cargo:rustc-env=CARGO_PACKAGER_PUBLIC_KEY={}", pubkey);
     }
 
-    // Print build information for debugging
-    println!("cargo:warning=Building in {profile} mode");
-
-    // Pass SENTRY_DSN from build environment to the binary
-    // This allows CI/CD to inject the DSN at build time
-    if let Ok(sentry_dsn) = std::env::var("SENTRY_DSN") {
-        println!("cargo:rustc-env=SENTRY_DSN_EMBEDDED={}", sentry_dsn);
-        println!("cargo:warning=Embedding Sentry DSN in binary");
-    }
-
-    // Add Windows-specific configurations
+    // For Windows, we need to embed resources
     #[cfg(target_os = "windows")]
     {
-        // Ensure we have an application manifest on Windows
-        embed_resource::compile("resources/windows/app.rc", embed_resource::NONE);
-    }
-
-    // macOS-specific build configurations
-    #[cfg(target_os = "macos")]
-    {
-        println!("cargo:rustc-link-arg=-framework");
-        println!("cargo:rustc-link-arg=Cocoa");
-        println!("cargo:rustc-link-arg=-framework");
-        println!("cargo:rustc-link-arg=AppKit");
+        // This is handled by embed-resource crate in Cargo.toml
     }
 }

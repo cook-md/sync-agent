@@ -58,10 +58,40 @@ impl Daemon {
             self.sync_manager.start().await?;
         }
 
-        // Note: Automatic background update checking removed
-        // Users can manually check via: cook-sync update
-        // Auto-update can be re-implemented using UpdateManager if needed
-        info!("Auto-update: Use 'cook-sync update' to check for updates manually");
+        // Check for updates in background if enabled
+        let config_clone = Arc::clone(&self.config);
+        tokio::spawn(async move {
+            // Wait a bit before checking to avoid slowing down startup
+            tokio::time::sleep(tokio::time::Duration::from_secs(30)).await;
+
+            let auto_update = config_clone.settings().lock().unwrap().auto_update;
+            if auto_update {
+                info!("Checking for updates in background (auto-update enabled)");
+                match crate::updater::check_for_updates(true).await {
+                    Ok(Some(version)) => {
+                        info!(
+                            "Update to version {} downloaded, will install on restart",
+                            version
+                        );
+                        let _ = crate::notifications::show_notification(
+                            "Cook Sync Update",
+                            &format!(
+                                "Update to version {} has been downloaded and will be installed on next restart.",
+                                version
+                            ),
+                        );
+                    }
+                    Ok(None) => {
+                        info!("No updates available");
+                    }
+                    Err(e) => {
+                        log::warn!("Background update check failed: {}", e);
+                    }
+                }
+            } else {
+                info!("Auto-update disabled, skipping background update check");
+            }
+        });
 
         // Setup signal handler for graceful shutdown
         let _sync_manager_clone = Arc::clone(&self.sync_manager);

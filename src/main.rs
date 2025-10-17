@@ -1,5 +1,4 @@
 mod api;
-mod appimage_integration;
 mod auth;
 mod config;
 mod daemon;
@@ -10,10 +9,7 @@ mod platform;
 mod sentry_integration;
 mod sync;
 mod tray;
-mod updates;
-
-#[cfg(target_os = "windows")]
-mod windows_integration;
+mod updater;
 
 use clap::{Parser, Subcommand};
 use error::Result;
@@ -71,12 +67,6 @@ enum Commands {
 
     /// Check for updates
     Update,
-
-    /// Install desktop integration (AppImage only)
-    Install,
-
-    /// Uninstall desktop integration (AppImage only)
-    Uninstall,
 }
 
 #[tokio::main]
@@ -107,8 +97,6 @@ async fn main() -> Result<()> {
             show,
         }) => configure(recipes_dir, auto_start, auto_update, show).await,
         Some(Commands::Update) => check_update().await,
-        Some(Commands::Install) => install_integration(),
-        Some(Commands::Uninstall) => uninstall_integration(),
         None => {
             // If no command specified, start the daemon
             start_daemon().await
@@ -232,24 +220,6 @@ async fn run_daemon() -> Result<()> {
         // Write PID file
         std::fs::write(&pid_file, std::process::id().to_string())?;
         info!("Cook Sync daemon started (PID: {})", std::process::id());
-    }
-
-    // Check if running from AppImage and offer integration on first run
-    #[cfg(target_os = "linux")]
-    {
-        if let Err(e) = appimage_integration::offer_integration() {
-            // Don't fail daemon start if integration fails
-            error!("Failed to offer AppImage integration: {e}");
-        }
-    }
-
-    // Offer Windows integration on first run
-    #[cfg(target_os = "windows")]
-    {
-        if let Err(e) = windows_integration::offer_integration() {
-            // Don't fail daemon start if integration fails
-            error!("Failed to offer Windows integration: {e}");
-        }
     }
 
     // Now run the actual daemon
@@ -493,121 +463,33 @@ async fn configure(
 async fn check_update() -> Result<()> {
     println!("Checking for updates...");
 
-    let update_manager = updates::UpdateManager::new().map_err(|e| {
-        error::SyncError::Update(format!("Failed to initialize update manager: {}", e))
-    })?;
+    let config = config::Config::new()?;
+    let auto_update = {
+        let settings = config.settings();
+        let settings = settings.lock().unwrap();
+        settings.auto_update
+    };
 
-    match update_manager.check_for_updates().await {
-        Ok(true) => {
-            println!("Update available! Starting installation...");
-            update_manager.install_update().await.map_err(|e| {
-                error::SyncError::Update(format!("Failed to install update: {}", e))
-            })?;
-            println!("Update installation completed successfully.");
+    match updater::check_for_updates(auto_update).await {
+        Ok(Some(version)) => {
+            if auto_update {
+                println!(
+                    "Update to version {} downloaded and will be installed on next restart",
+                    version
+                );
+            } else {
+                println!("Update available: version {}", version);
+                println!("Run with --auto-update to install automatically");
+            }
         }
-        Ok(false) => {
-            println!("You are running the latest version.");
+        Ok(None) => {
+            println!("You are running the latest version");
         }
         Err(e) => {
-            error!("Failed to check for updates: {}", e);
-            return Err(error::SyncError::Update(format!(
-                "Failed to check for updates: {}",
-                e
-            )));
+            error!("Update check failed: {}", e);
+            println!("Failed to check for updates: {}", e);
         }
     }
 
     Ok(())
-}
-
-fn install_integration() -> Result<()> {
-    #[cfg(target_os = "linux")]
-    {
-        if !appimage_integration::is_running_from_appimage() {
-            println!("This command is only available when running from an AppImage");
-            println!("For system-wide installation, use the .deb or .rpm package instead");
-            return Ok(());
-        }
-
-        if appimage_integration::is_already_integrated() {
-            println!("Cook Sync is already integrated into your applications menu");
-            return Ok(());
-        }
-
-        println!("Installing Cook Sync into your applications menu...");
-        appimage_integration::integrate_appimage()?;
-        println!("✓ Cook Sync has been added to your applications menu");
-        println!("You can now find it by searching for 'Cook Sync' in your launcher");
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if windows_integration::is_already_integrated() {
-            println!("Cook Sync is already integrated into your Start Menu");
-            return Ok(());
-        }
-
-        println!("Installing Cook Sync shortcuts...");
-        println!("Do you want to create a Desktop shortcut? (y/N): ");
-
-        let mut input = String::new();
-        std::io::stdin().read_line(&mut input).ok();
-
-        if input.trim().to_lowercase() == "y" {
-            windows_integration::integrate_windows_with_desktop()?;
-            println!("✓ Cook Sync has been added to your Start Menu and Desktop");
-        } else {
-            windows_integration::integrate_windows()?;
-            println!("✓ Cook Sync has been added to your Start Menu");
-        }
-
-        println!("You can now find it in your Start Menu");
-        Ok(())
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        println!("Desktop integration is not available on this platform");
-        Ok(())
-    }
-}
-
-fn uninstall_integration() -> Result<()> {
-    #[cfg(target_os = "linux")]
-    {
-        if !appimage_integration::is_running_from_appimage() {
-            println!("This command is only available when running from an AppImage");
-            return Ok(());
-        }
-
-        if !appimage_integration::is_already_integrated() {
-            println!("Cook Sync is not currently integrated");
-            return Ok(());
-        }
-
-        println!("Removing Cook Sync from your applications menu...");
-        appimage_integration::unintegrate_appimage()?;
-        println!("✓ Cook Sync has been removed from your applications menu");
-        Ok(())
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        if !windows_integration::is_already_integrated() {
-            println!("Cook Sync is not currently integrated");
-            return Ok(());
-        }
-
-        println!("Removing Cook Sync shortcuts...");
-        windows_integration::unintegrate_windows()?;
-        println!("✓ Cook Sync has been removed from your Start Menu and Desktop");
-        Ok(())
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        println!("Desktop integration is not available on this platform");
-        Ok(())
-    }
 }

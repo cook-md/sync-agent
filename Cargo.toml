@@ -52,8 +52,7 @@ futures-util = "0.3"
 clap = { version = "4", features = ["derive"] }
 
 # Update dependencies
-axoupdater = { version = "0.9", features = ["blocking"] }
-sha2 = "0.10"
+cargo-packager-updater = "0.2"
 once_cell = "1.21"
 sys-info = "0.9"
 sentry = { version = "0.43", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
