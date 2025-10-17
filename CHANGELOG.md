@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.1...cook-sync-v0.4.2) (2025-10-17)
+
+
+### Bug Fixes
+
+* allow cargo-dist to accept modified release.yml ([c1f0fd5](https://github.com/cook-md/sync-agent/commit/c1f0fd58ed359cf8489eb658e27278504172458b))
+* release ([010f7a7](https://github.com/cook-md/sync-agent/commit/010f7a780e9717c34e2c3bf6283d19d51060e956))
+* release ([66bc22b](https://github.com/cook-md/sync-agent/commit/66bc22bc469b93596b1f15369e791e4db29aae46))
+* remove broken cargo-dist apt dependencies, rely on manual installation ([4637a61](https://github.com/cook-md/sync-agent/commit/4637a61fe6609106af05aabf50caafd2844be607))
+
 ## [0.4.1](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.0...cook-sync-v0.4.1) (2025-10-16)
 
 
