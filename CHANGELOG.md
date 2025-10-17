@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.2...cook-sync-v0.5.0) (2025-10-17)
+
+
+### Features
+
+* migrate to cargo-packager ([02d3c5b](https://github.com/cook-md/sync-agent/commit/02d3c5ba7485f7b4a376911719af616be9750e4d))
+* migrate to cargo-packager ([33315b4](https://github.com/cook-md/sync-agent/commit/33315b46f9eafa252ac6015a54666b1a1bc301bc))
+
+
+### Bug Fixes
+
+* claude ([8c7bb2c](https://github.com/cook-md/sync-agent/commit/8c7bb2c530e7dbd3d0cff5bef3a6b6355028b2e9))
+* clippy ([837d6c1](https://github.com/cook-md/sync-agent/commit/837d6c14d8b5b8f11163c74f5e489ded54940e28))
+* conflict ([34c9c56](https://github.com/cook-md/sync-agent/commit/34c9c5693a34320a45829fc048252773e1635017))
+
 ## [0.4.2](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.1...cook-sync-v0.4.2) (2025-10-17)
 
 
