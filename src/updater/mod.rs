@@ -2,7 +2,7 @@
 // This module handles checking for and installing updates from GitHub Releases
 
 use crate::error::{Result, SyncError};
-use cargo_packager_updater::{check_update, Config, semver::Version, url::Url};
+use cargo_packager_updater::{check_update, semver::Version, url::Url, Config};
 use log::{error, info, warn};
 
 // Public key for signature verification (embedded at compile time)
@@ -12,7 +12,8 @@ const PUBLIC_KEY: &str = env!("CARGO_PACKAGER_PUBLIC_KEY");
 
 // GitHub Releases manifest URL
 // The manifest.json file contains version information and download URLs for all platforms
-const MANIFEST_URL: &str = "https://github.com/cooklang/sync-agent/releases/latest/download/manifest.json";
+const MANIFEST_URL: &str =
+    "https://github.com/cooklang/sync-agent/releases/latest/download/manifest.json";
 
 /// Check for updates and optionally install them
 ///
@@ -28,20 +29,24 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
         .parse::<Version>()
         .map_err(|e| SyncError::Other(format!("Invalid version: {}", e)))?;
 
-    info!("Checking for updates (current version: {})", current_version);
+    info!(
+        "Checking for updates (current version: {})",
+        current_version
+    );
 
     let config = Config {
-        endpoints: vec![
-            Url::parse(MANIFEST_URL)
-                .map_err(|e| SyncError::Other(format!("Invalid manifest URL: {}", e)))?
-        ],
+        endpoints: vec![Url::parse(MANIFEST_URL)
+            .map_err(|e| SyncError::Other(format!("Invalid manifest URL: {}", e)))?],
         pubkey: PUBLIC_KEY.to_string(),
         ..Default::default()
     };
 
     match check_update(current_version.clone(), config) {
         Ok(Some(update)) => {
-            info!("Update available: {} -> {}", current_version, update.version);
+            info!(
+                "Update available: {} -> {}",
+                current_version, update.version
+            );
 
             if auto_install {
                 info!("Auto-install enabled, downloading and installing update...");

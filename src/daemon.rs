@@ -69,7 +69,10 @@ impl Daemon {
                 info!("Checking for updates in background (auto-update enabled)");
                 match crate::updater::check_for_updates(true).await {
                     Ok(Some(version)) => {
-                        info!("Update to version {} downloaded, will install on restart", version);
+                        info!(
+                            "Update to version {} downloaded, will install on restart",
+                            version
+                        );
                         let _ = crate::notifications::show_notification(
                             "Cook Sync Update",
                             &format!(

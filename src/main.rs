@@ -464,15 +464,19 @@ async fn check_update() -> Result<()> {
     println!("Checking for updates...");
 
     let config = config::Config::new()?;
-    let settings = config.settings();
-    let settings = settings.lock().unwrap();
-    let auto_update = settings.auto_update;
-    drop(settings); // Release lock
+    let auto_update = {
+        let settings = config.settings();
+        let settings = settings.lock().unwrap();
+        settings.auto_update
+    };
 
     match updater::check_for_updates(auto_update).await {
         Ok(Some(version)) => {
             if auto_update {
-                println!("Update to version {} downloaded and will be installed on next restart", version);
+                println!(
+                    "Update to version {} downloaded and will be installed on next restart",
+                    version
+                );
             } else {
                 println!("Update available: version {}", version);
                 println!("Run with --auto-update to install automatically");

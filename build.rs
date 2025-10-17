@@ -13,8 +13,8 @@ fn main() {
     if env::var("CARGO_PACKAGER_PUBLIC_KEY").is_err() {
         // If not set, try to read from file
         if pubkey_path.exists() {
-            let pubkey = fs::read_to_string(&pubkey_path)
-                .expect("Failed to read .signing-key.pem.pub");
+            let pubkey =
+                fs::read_to_string(&pubkey_path).expect("Failed to read .signing-key.pem.pub");
             let pubkey = pubkey.trim();
 
             // Set the environment variable for the compiler
@@ -23,7 +23,9 @@ fn main() {
         } else {
             // In development, use a dummy key
             // In production/CI, this should be set via environment variable
-            eprintln!("Warning: No .signing-key.pem.pub found and CARGO_PACKAGER_PUBLIC_KEY not set");
+            eprintln!(
+                "Warning: No .signing-key.pem.pub found and CARGO_PACKAGER_PUBLIC_KEY not set"
+            );
             eprintln!("Using dummy public key for development builds");
             println!("cargo:rustc-env=CARGO_PACKAGER_PUBLIC_KEY=DUMMY_KEY_FOR_DEV");
         }
