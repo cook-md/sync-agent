@@ -4,3 +4,6 @@
 /keys
 .DS_Store
 sparkle-keys
+
+# Signing keys (add to GitHub Secrets)
+.signing-key.pem*
