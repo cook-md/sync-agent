@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.5.0...cook-sync-v0.6.0) (2025-10-18)
+
+
+### Features
+
+* unify release workflows into single conditional workflow ([bcaa770](https://github.com/cook-md/sync-agent/commit/bcaa77066a2395bdcac6b29f8e0c6c13962783b9))
+
 ## [0.5.0](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.4.2...cook-sync-v0.5.0) (2025-10-17)
 
 
