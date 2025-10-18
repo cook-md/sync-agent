@@ -178,11 +178,10 @@ RUST_LOG=debug cargo test
 
 The project uses GitHub Actions for CI/CD:
 
-1. **sync-agent-release-please.yml**: Manages version bumping and changelog generation
-2. **sync-agent-release-packages.yml**: Builds and publishes platform packages (AppImage, DMG, MSI)
-3. **sync-agent-ci.yml**: Runs tests and linting on PRs
+1. **release-please.yml**: Unified workflow that manages version bumping, changelog generation, builds platform packages (AppImage, DMG, MSI), and publishes releases
+2. **sync-agent-ci.yml**: Runs tests and linting on PRs
 
-Releases are signed and include platform-specific packages with auto-update support.
+The release-please workflow uses conditional job execution - build and packaging jobs only run when a release is created. Releases are signed and include platform-specific packages with auto-update support.
 
 ## Dependencies Note
 
