@@ -79,12 +79,32 @@ jobs:
         with:
           targets: ${{ matrix.platform.target }}
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.platform.target }}
+          # Shared cache key across workflow runs for aggressive caching
+          shared-key: release-${{ matrix.platform.target }}
+          # Prefix doesn't change with version to maximize cache reuse
+          prefix-key: v2-rust
+          # Save cache even on build failures
+          cache-on-failure: true
+          # Save cache for main branch builds
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Cache cargo-packager
+        id: cache-cargo-packager
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-packager
+          key: ${{ runner.os }}-cargo-packager-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-packager-
 
       - name: Install cargo-packager
+        if: steps.cache-cargo-packager.outputs.cache-hit != 'true'
         run: cargo install cargo-packager --locked
 
       - name: Install Linux dependencies
@@ -134,6 +154,10 @@ jobs:
             *.msi
             *.sig
           if-no-files-found: error
+
+      - name: Show sccache stats
+        if: always()
+        run: sccache --show-stats
 
   generate-manifest:
     name: Generate Update Manifest

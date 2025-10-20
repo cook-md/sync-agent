@@ -32,10 +32,13 @@ jobs:
         id: rust-cache
         uses: Swatinem/rust-cache@v2
         with:
+          # Shared cache key for aggressive caching
+          shared-key: ci-${{ matrix.os }}
+          # Stable prefix for maximum cache reuse
           prefix-key: v2-rust
-          shared-key: sync-agent-${{ matrix.os }}-debug
-          env-vars: CARGO CC CFLAGS CXX CMAKE RUST RUSTFLAGS
+          # Save cache even on build failures
           cache-on-failure: true
+          # Save cache for main branch and PRs
           save-if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'pull_request' }}
 
       - name: Report cache status
