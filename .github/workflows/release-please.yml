@@ -128,11 +128,11 @@ jobs:
         with:
           name: packages-${{ matrix.platform.artifact_name }}
           path: |
-            target/release/bundle/**/*.dmg
-            target/release/bundle/**/*.AppImage
-            target/release/bundle/**/*.exe
-            target/release/bundle/**/*.msi
-            target/release/bundle/**/*.sig
+            *.dmg
+            *.AppImage
+            *.exe
+            *.msi
+            *.sig
           if-no-files-found: error
 
   generate-manifest:
@@ -187,8 +187,11 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
+          # Copy all package files (now in root of each artifact directory)
           find artifacts -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -exec cp {} release-assets/ \;
+          # Copy manifest
           cp artifacts/manifest/manifest.json release-assets/
+          echo "Release assets prepared:"
           ls -lh release-assets/
 
       - name: Upload assets to existing release
