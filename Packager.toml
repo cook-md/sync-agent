@@ -22,6 +22,9 @@ resources = [
     "assets/package.*"
 ]
 
+# Icons for all platforms
+icons = ["assets/icon-256.png", "assets/icon-128.png", "assets/icon-48.png", "assets/icon-32.png"]
+
 # Main binary configuration
 [[binaries]]
 path = "target/release/cook-sync"
@@ -38,7 +41,6 @@ application-folder-position = { x = 480, y = 170 }
 
 # Linux AppImage configuration
 [appimage]
-icon = ["assets/icon-256.png"]
 
 # Windows NSIS configuration
 [nsis]
