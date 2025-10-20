@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.2...cook-sync-v0.6.3) (2025-10-20)
+
+
+### Bug Fixes
+
+* resolve additional release workflow issues ([bd57817](https://github.com/cook-md/sync-agent/commit/bd57817d86df6fbbcb3b93f6e4cde3700a16718c))
+
 ## [0.6.2](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.1...cook-sync-v0.6.2) (2025-10-20)
 
 
