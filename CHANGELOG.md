@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.6](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.5...cook-sync-v0.6.6) (2025-10-20)
+
+
+### Bug Fixes
+
+* update artifact paths to match cargo-packager output location ([3b7ca1c](https://github.com/cook-md/sync-agent/commit/3b7ca1cef4fd2619fa26f335bbbf2c9eb00fe9f8))
+
 ## [0.6.5](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.4...cook-sync-v0.6.5) (2025-10-20)
 
 
