@@ -37,12 +37,13 @@ application-folder-position = { x = 480, y = 170 }
 
 # Linux AppImage configuration
 [appimage]
+icon = ["assets/icon-256.png"]
 
 # Windows NSIS configuration
 [nsis]
 installer-icon = "assets/package.ico"
 installer-mode = "currentUser"
-languages = ["en-US"]
+languages = ["English"]
 compression = "lzma"
 display-language-selector = false
 
