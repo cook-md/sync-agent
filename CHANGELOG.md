@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.7](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.6...cook-sync-v0.6.7) (2025-10-20)
+
+
+### Performance Improvements
+
+* implement aggressive caching for faster builds ([1fc98ec](https://github.com/cook-md/sync-agent/commit/1fc98ecf426c01e4d3310c7deb513998eee3af26))
+
 ## [0.6.6](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.5...cook-sync-v0.6.6) (2025-10-20)
 
 
