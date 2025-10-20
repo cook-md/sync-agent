@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.3...cook-sync-v0.6.4) (2025-10-20)
+
+
+### Bug Fixes
+
+* restore required version field in Packager.toml ([6c016b8](https://github.com/cook-md/sync-agent/commit/6c016b85908d3e6e3967823b8543526b1aace2d6))
+
 ## [0.6.3](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.2...cook-sync-v0.6.3) (2025-10-20)
 
 
