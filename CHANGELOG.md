@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.4...cook-sync-v0.6.5) (2025-10-20)
+
+
+### Bug Fixes
+
+* correct icon configuration in Packager.toml ([38081b7](https://github.com/cook-md/sync-agent/commit/38081b7fc395ca878a5949b1b007274a529ab4c6))
+
 ## [0.6.4](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.3...cook-sync-v0.6.4) (2025-10-20)
 
 
