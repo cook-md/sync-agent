@@ -5,6 +5,7 @@
 name = "cook-sync"
 product-name = "Cook Sync"
 identifier = "com.cook.sync-agent"
+version = "0.6.2"
 authors = ["Alexey Dubovskoy"]
 publisher = "Cook.md"
 description = "CookCloud sync agent for syncing recipes with Cook.md"

@@ -65,6 +65,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Sync version to Packager.toml
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          echo "Syncing version $VERSION to Packager.toml"
+          # Use perl for cross-platform sed replacement
+          perl -i -pe "s/^version = .*/version = \"$VERSION\"/" Packager.toml
+          cat Packager.toml | grep '^version'
+
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
