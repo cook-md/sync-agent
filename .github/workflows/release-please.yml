@@ -143,19 +143,21 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          # Create temporary keychain
+          set -e
+          # Import certificate (same approach as cook.md)
+          echo "Decoding certificate..."
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+
+          echo "Creating keychain..."
           security create-keychain -p actions temp.keychain
           security default-keychain -s temp.keychain
           security unlock-keychain -p actions temp.keychain
-          security set-keychain-settings -lut 21600 temp.keychain
 
-          # Import certificate (allow all applications to access)
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security import certificate.p12 -k temp.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign -T /usr/bin/productbuild
+          echo "Importing certificate..."
+          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
 
-          # Verify certificate
-          echo "Available signing identities:"
+          echo "✅ Certificate imported successfully"
           security find-identity -v -p codesigning temp.keychain
 
           rm certificate.p12
@@ -200,19 +202,16 @@ jobs:
           echo "Available signing identities in keychain:"
           security find-identity -v -p codesigning temp.keychain
 
-          # Unlock keychain again in case it locked
+          # Ensure keychain is unlocked
           security unlock-keychain -p actions temp.keychain
 
           echo ""
           echo "Signing with hardened runtime and entitlements..."
 
           # Sign the entire app bundle with --deep to sign all nested code
-          # Using --deep is simpler and more reliable than manually signing each binary
-          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
-            --options runtime \
+          codesign --force --deep --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements assets/entitlements.plist \
             --timestamp \
-            --deep \
             --verbose \
             "$APP_BUNDLE"
 
