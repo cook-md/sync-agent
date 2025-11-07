@@ -153,8 +153,12 @@ impl Daemon {
                     log::error!("  1. Missing libappindicator3 library");
                     log::error!("     Ubuntu/Debian: sudo apt-get install libappindicator3-1");
                     log::error!("  2. GNOME desktop environment without AppIndicator extension");
-                    log::error!("     Install: sudo apt-get install gnome-shell-extension-appindicator");
-                    log::error!("     Enable: gnome-extensions enable ubuntu-appindicators@ubuntu.com");
+                    log::error!(
+                        "     Install: sudo apt-get install gnome-shell-extension-appindicator"
+                    );
+                    log::error!(
+                        "     Enable: gnome-extensions enable ubuntu-appindicators@ubuntu.com"
+                    );
                     log::error!(
                         "  3. Desktop environment: {}",
                         std::env::var("XDG_CURRENT_DESKTOP")
