@@ -231,18 +231,61 @@ jobs:
 
           echo "Creating keychain..."
           security create-keychain -p actions temp.keychain
+
+          echo "Adding keychain to search list..."
+          security list-keychains -d user -s temp.keychain login.keychain
+
+          echo "Setting as default keychain..."
           security default-keychain -s temp.keychain
+
+          echo "Unlocking keychain..."
           security unlock-keychain -p actions temp.keychain
 
+          echo "Setting keychain settings..."
+          security set-keychain-settings -lut 21600 temp.keychain
+
           echo "Importing certificate..."
-          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          # Use -A to allow all applications to access (required for CI/CD)
+          IMPORT_OUTPUT=$(security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -A 2>&1)
+          IMPORT_EXIT_CODE=$?
+
+          echo "$IMPORT_OUTPUT"
+
+          if [ $IMPORT_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "ERROR: Failed to import certificate (exit code: $IMPORT_EXIT_CODE)"
+            if echo "$IMPORT_OUTPUT" | grep -q "MAC verification failed"; then
+              echo "❌ Wrong APPLE_CERTIFICATE_PASSWORD"
+            elif echo "$IMPORT_OUTPUT" | grep -q "format"; then
+              echo "❌ Invalid certificate format - not a valid .p12 file"
+            else
+              echo "❌ Unknown import error - check the output above"
+            fi
+            exit 1
+          fi
 
           echo "Setting key partition list..."
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
+          if ! security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain 2>&1; then
+            echo "ERROR: Failed to set key partition list"
+            exit 1
+          fi
 
           echo "✅ Certificate import complete"
           echo "Verifying identities in keychain:"
           security find-identity -v -p codesigning temp.keychain
+
+          # Also check in all keychains
+          echo ""
+          echo "All available codesigning identities:"
+          security find-identity -v -p codesigning
+
+          # Verify we actually have a signing identity
+          IDENTITY_COUNT=$(security find-identity -v -p codesigning temp.keychain | grep -c "valid identities found" || true)
+          if security find-identity -v -p codesigning temp.keychain | grep -q "0 valid identities found"; then
+            echo "ERROR: No valid code signing identities found after import"
+            echo "The certificate may not be a valid Developer ID Application certificate"
+            exit 1
+          fi
 
           rm certificate.p12
 
