@@ -182,7 +182,7 @@ jobs:
       - name: Sign with Hardened Runtime (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
-          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           # Find the app bundle
           APP_BUNDLE=$(find . -name "Cook Sync.app" -type d | head -1)
@@ -194,19 +194,20 @@ jobs:
           fi
 
           echo "Found app bundle: $APP_BUNDLE"
+          echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
+
+          # Verify keychain and certificate are accessible
+          echo "Available signing identities in keychain:"
+          security find-identity -v -p codesigning temp.keychain
+
+          # Unlock keychain again in case it locked
+          security unlock-keychain -p actions temp.keychain
+
+          echo ""
           echo "Signing with hardened runtime and entitlements..."
 
-          # Sign all binaries and frameworks recursively
-          find "$APP_BUNDLE/Contents" -type f \( -perm +111 -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' file; do
-            echo "Signing: $file"
-            codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
-              --options runtime \
-              --timestamp \
-              --verbose \
-              "$file" 2>&1 || echo "Failed to sign $file (may not be a binary)"
-          done
-
-          # Sign the main app bundle with entitlements
+          # Sign the entire app bundle with --deep to sign all nested code
+          # Using --deep is simpler and more reliable than manually signing each binary
           codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
             --options runtime \
             --entitlements assets/entitlements.plist \
