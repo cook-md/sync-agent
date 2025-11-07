@@ -2,30 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- Allow network access for syncing -->
+    <!-- Network access for syncing with Cook.md -->
     <key>com.apple.security.network.client</key>
     <true/>
-    <key>com.apple.security.network.server</key>
-    <true/>
 
-    <!-- Allow file access for recipes directory -->
-    <key>com.apple.security.files.user-selected.read-write</key>
-    <true/>
-
-    <!-- Allow keychain access for storing credentials -->
+    <!-- Disable App Sandbox to allow system tray and keychain access -->
+    <!-- The app runs outside sandbox but with hardened runtime enabled -->
     <key>com.apple.security.app-sandbox</key>
-    <false/>
-
-    <!-- Hardened Runtime entitlements -->
-    <key>com.apple.security.cs.allow-jit</key>
-    <false/>
-    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
-    <false/>
-    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
-    <false/>
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <false/>
-    <key>com.apple.security.cs.disable-executable-page-protection</key>
     <false/>
 </dict>
 </plist>

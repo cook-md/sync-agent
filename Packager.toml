@@ -35,9 +35,7 @@ main = true
 # macOS-specific configuration
 [macos]
 minimum-system-version = "10.13"
-# Enable hardened runtime for notarization
-hardened-runtime = true
-# Entitlements file for code signing
+# Entitlements file for code signing (enables hardened runtime automatically)
 entitlements = "assets/entitlements.plist"
 # Signing identity will be read from APPLE_SIGNING_IDENTITY environment variable
 # Set in CI/CD or locally: export APPLE_SIGNING_IDENTITY="Developer ID Application: YOUR_NAME (TEAM_ID)"

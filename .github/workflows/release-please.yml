@@ -170,7 +170,7 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
       - name: Build and Package
-        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }}
+        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
         env:
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
@@ -192,19 +192,36 @@ jobs:
           APP_PATH="/Volumes/CookSync/Cook Sync.app"
 
           if [ -d "$APP_PATH" ]; then
-            echo "Checking code signature of app bundle:"
-            codesign -dv --verbose=4 "$APP_PATH" 2>&1 || echo "App not signed or signature invalid"
+            echo "=== Checking code signature of app bundle ==="
+            codesign -dv --verbose=4 "$APP_PATH" 2>&1
 
             echo ""
-            echo "Verifying signature:"
-            codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 || echo "Verification failed"
+            echo "=== Verifying signature ==="
+            if codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1; then
+              echo "✓ Signature verification passed"
+            else
+              echo "❌ Signature verification FAILED"
+              exit 1
+            fi
 
             echo ""
-            echo "Checking hardened runtime:"
+            echo "=== Checking for hardened runtime ==="
+            CODESIGN_OUTPUT=$(codesign -dv "$APP_PATH" 2>&1)
+            if echo "$CODESIGN_OUTPUT" | grep -q "runtime"; then
+              echo "✓ Hardened runtime is ENABLED"
+            else
+              echo "❌ Hardened runtime is NOT enabled"
+              echo "This will cause notarization to fail!"
+              exit 1
+            fi
+
+            echo ""
+            echo "=== Checking entitlements ==="
             codesign -d --entitlements - "$APP_PATH" 2>&1 || echo "No entitlements found"
           else
             echo "ERROR: App bundle not found at $APP_PATH"
             ls -la /Volumes/CookSync/
+            exit 1
           fi
 
           # Unmount
