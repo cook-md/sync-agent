@@ -194,17 +194,17 @@ jobs:
         shell: bash
 
       - name: Import Code Signing Certificate (macOS)
-        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
+        if: matrix.platform.os == 'macos-latest'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           set -e
 
-          # Verify secret is available
+          # Verify secret is available (skip if not set)
           if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "ERROR: APPLE_CERTIFICATE secret is empty or not set"
-            exit 1
+            echo "⚠️ APPLE_CERTIFICATE secret is not set - skipping code signing"
+            exit 0
           fi
 
           if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
@@ -266,10 +266,17 @@ jobs:
           DEPLOY_GTK_VERSION: 3
 
       - name: Sign with Hardened Runtime (macOS)
-        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
+        if: matrix.platform.os == 'macos-latest'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         run: |
+          # Skip if certificate not set
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "⚠️ Skipping code signing - APPLE_CERTIFICATE not set"
+            exit 0
+          fi
+
           # Find the app bundle
           APP_BUNDLE=$(find . -name "Cook Sync.app" -type d | head -1)
 
@@ -321,8 +328,16 @@ jobs:
           cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
 
       - name: Verify Code Signing (macOS)
-        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
         run: |
+          # Skip if certificate not set
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "⚠️ Skipping code signing verification - APPLE_CERTIFICATE not set"
+            exit 0
+          fi
+
           # Find the DMG file
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
           echo "Verifying DMG: $DMG_FILE"
@@ -368,12 +383,19 @@ jobs:
           hdiutil detach /Volumes/CookSync
 
       - name: Notarize DMG (macOS)
-        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
+        if: matrix.platform.os == 'macos-latest'
         env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Skip if certificate not set
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "⚠️ Skipping notarization - APPLE_CERTIFICATE not set"
+            exit 0
+          fi
+
           # Find the DMG file
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
           echo "Found DMG: $DMG_FILE"
