@@ -130,7 +130,8 @@ jobs:
           if [ "${{ matrix.platform.os }}" = "ubuntu-22.04" ]; then
             echo "format=appimage" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.platform.os }}" = "macos-latest" ]; then
-            echo "format=dmg" >> $GITHUB_OUTPUT
+            # Build app bundle first so we can sign it with hardened runtime
+            echo "format=app" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
             echo "format=nsis" >> $GITHUB_OUTPUT
           fi
@@ -169,7 +170,7 @@ jobs:
           echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
-      - name: Build and Package
+      - name: Build App Bundle
         run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
         env:
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
@@ -177,8 +178,63 @@ jobs:
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
           # GTK version for linuxdeploy plugin (Linux only)
           DEPLOY_GTK_VERSION: 3
-          # macOS-specific signing (only set on macOS runners)
+
+      - name: Sign with Hardened Runtime (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
           APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+        run: |
+          # Find the app bundle
+          APP_BUNDLE=$(find . -name "Cook Sync.app" -type d | head -1)
+
+          if [ -z "$APP_BUNDLE" ]; then
+            echo "ERROR: Could not find app bundle"
+            find . -name "*.app" -type d
+            exit 1
+          fi
+
+          echo "Found app bundle: $APP_BUNDLE"
+          echo "Signing with hardened runtime and entitlements..."
+
+          # Sign all binaries and frameworks recursively
+          find "$APP_BUNDLE/Contents" -type f \( -perm +111 -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' file; do
+            echo "Signing: $file"
+            codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+              --options runtime \
+              --timestamp \
+              --verbose \
+              "$file" 2>&1 || echo "Failed to sign $file (may not be a binary)"
+          done
+
+          # Sign the main app bundle with entitlements
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+            --options runtime \
+            --entitlements assets/entitlements.plist \
+            --timestamp \
+            --deep \
+            --verbose \
+            "$APP_BUNDLE"
+
+          echo ""
+          echo "=== Verifying signature ==="
+          codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+
+          echo ""
+          echo "=== Checking signature details ==="
+          codesign -dv --verbose=4 "$APP_BUNDLE" 2>&1
+
+          echo ""
+          echo "✓ App bundle signed with hardened runtime"
+
+      - name: Create DMG (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+          CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
+        run: |
+          echo "Creating DMG from signed app bundle..."
+          cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
 
       - name: Verify Code Signing (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -187,8 +243,8 @@ jobs:
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
           echo "Verifying DMG: $DMG_FILE"
 
-          # Mount the DMG and check the app
-          hdiutil attach "$DMG_FILE" -mountpoint /Volumes/CookSync
+          # Mount the DMG and check the app (skip license agreement prompt)
+          hdiutil attach "$DMG_FILE" -mountpoint /Volumes/CookSync -nobrowse -noverify -noautoopen
           APP_PATH="/Volumes/CookSync/Cook Sync.app"
 
           if [ -d "$APP_PATH" ]; then
