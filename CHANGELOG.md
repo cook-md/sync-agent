@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.8](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.7...cook-sync-v0.6.8) (2025-11-07)
+
+
+### Bug Fixes
+
+* add hardened runtime and entitlements for macOS notarization ([5ce1381](https://github.com/cook-md/sync-agent/commit/5ce13819b019fcec0eac7da82217e9fcd257c78a))
+* fmt ([5fadd5c](https://github.com/cook-md/sync-agent/commit/5fadd5cf25e87c5ca6b9c61d4ba709681053d9bb))
+
 ## [0.6.7](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.6...cook-sync-v0.6.7) (2025-11-07)
 
 
