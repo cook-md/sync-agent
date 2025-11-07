@@ -20,7 +20,8 @@ before-packaging-command = "cargo build --release"
 resources = [
     "assets/icon*.png",
     "assets/package.*",
-    "assets/cook-sync.desktop"
+    "assets/cook-sync.desktop",
+    "assets/entitlements.plist"
 ]
 
 # Icons for all platforms
@@ -34,15 +35,12 @@ main = true
 # macOS-specific configuration
 [macos]
 minimum-system-version = "10.13"
-# Developer ID Application certificate from Apple Developer account
-# Find in Keychain Access under "My Certificates"
-# Format: "Developer ID Application: Your Name (TEAM_ID)"
-# This will be set via APPLE_SIGNING_IDENTITY environment variable in CI/CD
-# signing-identity = "Developer ID Application: YOUR_NAME (TEAM_ID)"
-# Provider short name for notarization (usually your Apple ID or team ID)
-# Find with: xcrun notarytool history --keychain-profile "AC_PASSWORD"
-# This will be set via APPLE_TEAM_ID environment variable in CI/CD
-# provider-short-name = "YOUR_PROVIDER_SHORT_NAME"
+# Enable hardened runtime for notarization
+hardened-runtime = true
+# Entitlements file for code signing
+entitlements = "assets/entitlements.plist"
+# Signing identity will be read from APPLE_SIGNING_IDENTITY environment variable
+# Set in CI/CD or locally: export APPLE_SIGNING_IDENTITY="Developer ID Application: YOUR_NAME (TEAM_ID)"
 
 [dmg]
 window-size = { width = 660, height = 400 }

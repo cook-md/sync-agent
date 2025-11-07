@@ -148,13 +148,14 @@ jobs:
           security unlock-keychain -p actions temp.keychain
           security set-keychain-settings -lut 21600 temp.keychain
 
-          # Import certificate
+          # Import certificate (allow all applications to access)
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security import certificate.p12 -k temp.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
+          security import certificate.p12 -k temp.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign -T /usr/bin/productbuild
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
 
           # Verify certificate
-          security find-identity -v temp.keychain
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning temp.keychain
 
           rm certificate.p12
 
@@ -165,6 +166,7 @@ jobs:
         run: |
           # Use the signing identity from secrets
           # This matches the identity in the imported certificate
+          echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
       - name: Build and Package
@@ -178,6 +180,36 @@ jobs:
           # macOS-specific signing (only set on macOS runners)
           APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
 
+      - name: Verify Code Signing (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        run: |
+          # Find the DMG file
+          DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
+          echo "Verifying DMG: $DMG_FILE"
+
+          # Mount the DMG and check the app
+          hdiutil attach "$DMG_FILE" -mountpoint /Volumes/CookSync
+          APP_PATH="/Volumes/CookSync/Cook Sync.app"
+
+          if [ -d "$APP_PATH" ]; then
+            echo "Checking code signature of app bundle:"
+            codesign -dv --verbose=4 "$APP_PATH" 2>&1 || echo "App not signed or signature invalid"
+
+            echo ""
+            echo "Verifying signature:"
+            codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1 || echo "Verification failed"
+
+            echo ""
+            echo "Checking hardened runtime:"
+            codesign -d --entitlements - "$APP_PATH" 2>&1 || echo "No entitlements found"
+          else
+            echo "ERROR: App bundle not found at $APP_PATH"
+            ls -la /Volumes/CookSync/
+          fi
+
+          # Unmount
+          hdiutil detach /Volumes/CookSync
+
       - name: Notarize DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
@@ -189,23 +221,48 @@ jobs:
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
           echo "Found DMG: $DMG_FILE"
 
-          # Submit for notarization
+          # Submit for notarization and capture output
           echo "Submitting to Apple notarization service..."
-          xcrun notarytool submit "$DMG_FILE" \
+          NOTARIZE_OUTPUT=$(xcrun notarytool submit "$DMG_FILE" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait 2>&1)
 
-          # Staple the notarization ticket
-          echo "Stapling notarization ticket..."
-          xcrun stapler staple "$DMG_FILE"
+          echo "$NOTARIZE_OUTPUT"
 
-          # Verify stapling
-          echo "Verifying staple..."
-          xcrun stapler validate "$DMG_FILE"
+          # Extract submission ID for potential log retrieval
+          SUBMISSION_ID=$(echo "$NOTARIZE_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
+          echo "Submission ID: $SUBMISSION_ID"
 
-          echo "✓ Notarization complete and stapled"
+          # Check if notarization succeeded
+          if echo "$NOTARIZE_OUTPUT" | grep -q "status: Accepted"; then
+            echo "✓ Notarization accepted"
+
+            # Staple the notarization ticket
+            echo "Stapling notarization ticket..."
+            xcrun stapler staple "$DMG_FILE"
+
+            # Verify stapling
+            echo "Verifying staple..."
+            xcrun stapler validate "$DMG_FILE"
+
+            echo "✓ Notarization complete and stapled"
+          else
+            echo "❌ Notarization failed or returned non-Accepted status"
+
+            # Try to get detailed log
+            if [ ! -z "$SUBMISSION_ID" ]; then
+              echo ""
+              echo "Fetching notarization log for debugging..."
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" || echo "Could not fetch log"
+            fi
+
+            exit 1
+          fi
 
       - name: Cleanup Keychain (macOS)
         if: always() && matrix.platform.os == 'macos-latest'
