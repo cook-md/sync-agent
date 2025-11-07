@@ -124,6 +124,62 @@ jobs:
             echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
 
+      - name: Verify macOS Secrets (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          echo "Checking macOS signing secrets..."
+          MISSING_SECRETS=()
+
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            MISSING_SECRETS+=("APPLE_CERTIFICATE")
+          fi
+
+          if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+            MISSING_SECRETS+=("APPLE_CERTIFICATE_PASSWORD")
+          fi
+
+          if [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            MISSING_SECRETS+=("APPLE_SIGNING_IDENTITY")
+          fi
+
+          if [ -z "$APPLE_ID" ]; then
+            MISSING_SECRETS+=("APPLE_ID")
+          fi
+
+          if [ -z "$APPLE_PASSWORD" ]; then
+            MISSING_SECRETS+=("APPLE_PASSWORD")
+          fi
+
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            MISSING_SECRETS+=("APPLE_TEAM_ID")
+          fi
+
+          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
+            echo "❌ ERROR: The following secrets are not configured:"
+            for secret in "${MISSING_SECRETS[@]}"; do
+              echo "  - $secret"
+            done
+            echo ""
+            echo "To configure secrets, copy them from cooklang/thereciper:"
+            echo "  gh secret set APPLE_CERTIFICATE --repo cook-md/sync-agent"
+            echo "  gh secret set APPLE_CERTIFICATE_PASSWORD --repo cook-md/sync-agent"
+            echo "  gh secret set APPLE_SIGNING_IDENTITY --repo cook-md/sync-agent"
+            echo "  gh secret set APPLE_ID --repo cook-md/sync-agent"
+            echo "  gh secret set APPLE_PASSWORD --repo cook-md/sync-agent"
+            echo "  gh secret set APPLE_TEAM_ID --repo cook-md/sync-agent"
+            echo ""
+            echo "⚠️ WARNING: macOS code signing and notarization will be skipped"
+          else
+            echo "✅ All macOS signing secrets are configured"
+          fi
+
       - name: Determine package format
         id: format
         run: |
@@ -138,15 +194,40 @@ jobs:
         shell: bash
 
       - name: Import Code Signing Certificate (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           set -e
+
+          # Verify secret is available
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "ERROR: APPLE_CERTIFICATE secret is empty or not set"
+            exit 1
+          fi
+
+          if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
+            echo "ERROR: APPLE_CERTIFICATE_PASSWORD secret is empty or not set"
+            exit 1
+          fi
+
           # Import certificate (same approach as cook.md)
           echo "Decoding certificate..."
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+
+          # Check if certificate file was created and has content
+          if [ ! -f certificate.p12 ]; then
+            echo "ERROR: certificate.p12 was not created"
+            exit 1
+          fi
+
+          CERT_SIZE=$(wc -c < certificate.p12)
+          echo "Certificate file size: $CERT_SIZE bytes"
+          if [ "$CERT_SIZE" -lt 100 ]; then
+            echo "ERROR: Certificate file is too small (likely empty or invalid)"
+            exit 1
+          fi
 
           echo "Creating keychain..."
           security create-keychain -p actions temp.keychain
@@ -154,10 +235,13 @@ jobs:
           security unlock-keychain -p actions temp.keychain
 
           echo "Importing certificate..."
-          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -v
+
+          echo "Setting key partition list..."
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
 
-          echo "✅ Certificate imported successfully"
+          echo "✅ Certificate import complete"
+          echo "Verifying identities in keychain:"
           security find-identity -v -p codesigning temp.keychain
 
           rm certificate.p12
@@ -182,7 +266,7 @@ jobs:
           DEPLOY_GTK_VERSION: 3
 
       - name: Sign with Hardened Runtime (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
@@ -237,7 +321,7 @@ jobs:
           cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
 
       - name: Verify Code Signing (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
         run: |
           # Find the DMG file
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
@@ -284,7 +368,7 @@ jobs:
           hdiutil detach /Volumes/CookSync
 
       - name: Notarize DMG (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: matrix.platform.os == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
