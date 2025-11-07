@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.14](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.13...cook-sync-v0.6.14) (2025-11-07)
+
+
+### Bug Fixes
+
+* dashboard ([f0930b7](https://github.com/cook-md/sync-agent/commit/f0930b75dabb065b01f6113aa9588bff9e477b22))
+
 ## [0.6.13](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.12...cook-sync-v0.6.13) (2025-11-07)
 
 
