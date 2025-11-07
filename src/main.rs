@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 mod api;
 mod auth;
 mod config;
@@ -168,6 +170,12 @@ async fn start_daemon() -> Result<()> {
             Ok(_) => {
                 println!("Cook Sync started successfully");
                 println!("The system tray icon should appear in your status bar.");
+                println!();
+                println!("If the tray icon doesn't appear:");
+                println!("  - On GNOME: Install gnome-shell-extension-appindicator");
+                println!("  - On Ubuntu/Debian: Install libappindicator3-1");
+                println!("  - Check logs: ~/.cache/cook-sync/cook-sync.log");
+                println!("  - Run 'cook-sync status' to verify the daemon is running");
                 Ok(())
             }
             Err(e) => {
@@ -181,25 +189,36 @@ async fn start_daemon() -> Result<()> {
 
     #[cfg(windows)]
     {
-        // On Windows, use similar approach
         use std::process::Command;
 
         let exe = std::env::current_exe()?;
         let mut cmd = Command::new(exe);
         cmd.arg("daemon");
 
-        // Detach from parent
+        // Don't hide stderr to capture potential errors during startup
         cmd.stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
+            .stdout(std::process::Stdio::null());
 
         match cmd.spawn() {
             Ok(_) => {
+                // Show notification to user
+                let _ = notifications::show_notification(
+                    "Cook Sync",
+                    "Cook Sync started successfully. Look for the tray icon in your system tray.",
+                );
+                // Give notification time to display before parent process exits
+                std::thread::sleep(std::time::Duration::from_millis(1500));
                 println!("Cook Sync started successfully");
                 Ok(())
             }
             Err(e) => {
+                // Show error notification
                 error!("Failed to start daemon: {e}");
+                let _ = notifications::show_notification(
+                    "Cook Sync Error",
+                    &format!("Failed to start: {}", e),
+                );
+                std::thread::sleep(std::time::Duration::from_millis(2000));
                 Err(error::SyncError::Other(format!(
                     "Failed to start daemon: {e}"
                 )))

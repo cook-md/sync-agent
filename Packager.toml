@@ -19,7 +19,8 @@ before-packaging-command = "cargo build --release"
 # Resources to include in the package
 resources = [
     "assets/icon*.png",
-    "assets/package.*"
+    "assets/package.*",
+    "assets/cook-sync.desktop"
 ]
 
 # Icons for all platforms
@@ -33,6 +34,15 @@ main = true
 # macOS-specific configuration
 [macos]
 minimum-system-version = "10.13"
+# Developer ID Application certificate from Apple Developer account
+# Find in Keychain Access under "My Certificates"
+# Format: "Developer ID Application: Your Name (TEAM_ID)"
+# This will be set via APPLE_SIGNING_IDENTITY environment variable in CI/CD
+# signing-identity = "Developer ID Application: YOUR_NAME (TEAM_ID)"
+# Provider short name for notarization (usually your Apple ID or team ID)
+# Find with: xcrun notarytool history --keychain-profile "AC_PASSWORD"
+# This will be set via APPLE_TEAM_ID environment variable in CI/CD
+# provider-short-name = "YOUR_PROVIDER_SHORT_NAME"
 
 [dmg]
 window-size = { width = 660, height = 400 }
@@ -41,6 +51,30 @@ application-folder-position = { x = 480, y = 170 }
 
 # Linux AppImage configuration
 [appimage]
+# Bundle GTK3 and related libraries using linuxdeploy GTK plugin
+# This ensures the system tray icon works on distributions without libappindicator
+linuxdeployPlugins = { gtk = "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh" }
+
+# Explicitly include libappindicator libraries for system tray support
+libs = [
+    "libappindicator3.so.1",
+    "libdbusmenu-glib.so.4",
+    "libdbusmenu-gtk3.so.4",
+    "libindicator3.so.7"
+]
+
+# Exclude commonly available system libraries to reduce AppImage size
+# These are expected to be present on all modern Linux distributions
+excludedLibs = [
+    "libc.so*",
+    "libdl.so*",
+    "libpthread.so*",
+    "libm.so*",
+    "libgcc_s.so*",
+    "libstdc++.so*",
+    "libX11.so*",
+    "libxcb.so*"
+]
 
 # Windows NSIS configuration
 [nsis]

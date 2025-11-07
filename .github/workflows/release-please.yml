@@ -136,12 +136,81 @@ jobs:
           fi
         shell: bash
 
+      - name: Import Code Signing Certificate (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          security create-keychain -p actions temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p actions temp.keychain
+          security set-keychain-settings -lut 21600 temp.keychain
+
+          # Import certificate
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security import certificate.p12 -k temp.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
+
+          # Verify certificate
+          security find-identity -v temp.keychain
+
+          rm certificate.p12
+
+      - name: Configure macOS Signing (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          # Use the signing identity from secrets
+          # This matches the identity in the imported certificate
+          echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
+
       - name: Build and Package
         run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }}
         env:
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
+          # GTK version for linuxdeploy plugin (Linux only)
+          DEPLOY_GTK_VERSION: 3
+          # macOS-specific signing (only set on macOS runners)
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+
+      - name: Notarize DMG (macOS)
+        if: matrix.platform.os == 'macos-latest'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Find the DMG file
+          DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
+          echo "Found DMG: $DMG_FILE"
+
+          # Submit for notarization
+          echo "Submitting to Apple notarization service..."
+          xcrun notarytool submit "$DMG_FILE" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          # Staple the notarization ticket
+          echo "Stapling notarization ticket..."
+          xcrun stapler staple "$DMG_FILE"
+
+          # Verify stapling
+          echo "Verifying staple..."
+          xcrun stapler validate "$DMG_FILE"
+
+          echo "✓ Notarization complete and stapled"
+
+      - name: Cleanup Keychain (macOS)
+        if: always() && matrix.platform.os == 'macos-latest'
+        run: |
+          security delete-keychain temp.keychain || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

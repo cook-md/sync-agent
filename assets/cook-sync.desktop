@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Cook Sync
+Comment=Sync recipes with Cook.md
+Exec=cook-sync start
+Icon=cook-sync
+Terminal=false
+Categories=Utility;Network;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

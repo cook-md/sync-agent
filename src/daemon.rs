@@ -140,6 +140,32 @@ impl Daemon {
             }
             Err(e) => {
                 log::error!("Failed to create system tray: {}", e);
+
+                #[cfg(windows)]
+                log::error!(
+                    "Windows: Ensure no other instance is running. Check Task Manager for cook-sync processes."
+                );
+
+                #[cfg(target_os = "linux")]
+                {
+                    log::error!("Linux: System tray icon failed to initialize.");
+                    log::error!("This may be due to:");
+                    log::error!("  1. Missing libappindicator3 library");
+                    log::error!("     Ubuntu/Debian: sudo apt-get install libappindicator3-1");
+                    log::error!("  2. GNOME desktop environment without AppIndicator extension");
+                    log::error!("     Install: sudo apt-get install gnome-shell-extension-appindicator");
+                    log::error!("     Enable: gnome-extensions enable ubuntu-appindicators@ubuntu.com");
+                    log::error!(
+                        "  3. Desktop environment: {}",
+                        std::env::var("XDG_CURRENT_DESKTOP")
+                            .unwrap_or_else(|_| "Unknown".to_string())
+                    );
+                    log::error!(
+                        "  4. Session type: {}",
+                        std::env::var("XDG_SESSION_TYPE").unwrap_or_else(|_| "Unknown".to_string())
+                    );
+                }
+
                 return Err(e);
             }
         };
@@ -185,8 +211,13 @@ pub fn is_already_running(config: &Config) -> bool {
             // Check if process is still running
             #[cfg(unix)]
             {
-                // Send signal 0 to check if process exists
-                unsafe { libc::kill(pid as i32, 0) == 0 }
+                let running = unsafe { libc::kill(pid as i32, 0) == 0 };
+                if !running {
+                    log::warn!("Found stale PID file for process {}, cleaning up", pid);
+                    let _ = fs::remove_file(pid_file);
+                    return false;
+                }
+                running
             }
 
             #[cfg(windows)]
@@ -201,6 +232,8 @@ pub fn is_already_running(config: &Config) -> bool {
                         CloseHandle(handle);
                         true
                     } else {
+                        log::warn!("Found stale PID file for process {}, cleaning up", pid);
+                        let _ = fs::remove_file(pid_file);
                         false
                     }
                 }
@@ -211,6 +244,11 @@ pub fn is_already_running(config: &Config) -> bool {
                 false
             }
         } else {
+            log::warn!(
+                "Invalid PID file content: '{}', cleaning up",
+                pid_str.trim()
+            );
+            let _ = fs::remove_file(pid_file);
             false
         }
     } else {
