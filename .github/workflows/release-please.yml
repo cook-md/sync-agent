@@ -235,7 +235,7 @@ jobs:
           security unlock-keychain -p actions temp.keychain
 
           echo "Importing certificate..."
-          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -v
+          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
 
           echo "Setting key partition list..."
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
