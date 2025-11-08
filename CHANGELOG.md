@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.18](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.17...cook-sync-v0.6.18) (2025-11-08)
+
+
+### Bug Fixes
+
+* improve macOS release build process ([f28723a](https://github.com/cook-md/sync-agent/commit/f28723a69d84c211cd3b3bab6dc37f0ecb4bd804))
+
 ## [0.6.17](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.16...cook-sync-v0.6.17) (2025-11-08)
 
 
