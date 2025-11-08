@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.20](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.19...cook-sync-v0.6.20) (2025-11-08)
+
+
+### Bug Fixes
+
+* publisher config ([0e0a742](https://github.com/cook-md/sync-agent/commit/0e0a7428ab269f92ad0f4c6223aaa19028354a75))
+
 ## [0.6.19](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.18...cook-sync-v0.6.19) (2025-11-08)
 
 
