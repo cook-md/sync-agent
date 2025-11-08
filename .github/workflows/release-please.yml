@@ -193,6 +193,11 @@ jobs:
           fi
         shell: bash
 
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.platform.target }}
+        env:
+          RUSTC_WRAPPER: sccache
+
       - name: Import Code Signing Certificate (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
@@ -234,9 +239,10 @@ jobs:
           echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
-      - name: Build App Bundle
+      - name: Package application
         run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
         env:
+          RUSTC_WRAPPER: sccache
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
@@ -282,11 +288,13 @@ jobs:
       - name: Create DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
+          RUSTC_WRAPPER: sccache
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
         run: |
           echo "Creating DMG from signed app bundle..."
+          # cargo-packager should reuse the existing signed .app bundle
           cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
 
       - name: Notarize DMG (macOS)
