@@ -25,8 +25,10 @@ resources = [
 icons = ["assets/icon-256.png", "assets/icon-128.png", "assets/icon-48.png", "assets/icon-32.png"]
 
 # Main binary configuration
+# When using --target, cargo-packager resolves the binary from target/<target>/release/
+# We specify just the binary name and let cargo-packager find it in the correct location
 [[binaries]]
-path = "target/release/cook-sync"
+path = "cook-sync"
 main = true
 
 # macOS-specific configuration
