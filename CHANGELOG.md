@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.19](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.18...cook-sync-v0.6.19) (2025-11-08)
+
+
+### Bug Fixes
+
+* correct binary path for cross-compilation targets ([cf35086](https://github.com/cook-md/sync-agent/commit/cf3508683573183730ccaf2b2904be17c388bd5a))
+* correct binary path for cross-compilation targets ([195fb49](https://github.com/cook-md/sync-agent/commit/195fb49f91a2fbc899e55b04c1c5dd7278a045a2))
+
 ## [0.6.18](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.17...cook-sync-v0.6.18) (2025-11-08)
 
 
