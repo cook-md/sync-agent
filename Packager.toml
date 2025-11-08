@@ -13,9 +13,6 @@ homepage = "https://cook.md"
 copyright = "Copyright (c) 2025 Cook.md"
 license-file = "LICENSE"
 
-# Build command to run before packaging
-before-packaging-command = "cargo build --release"
-
 # Resources to include in the package
 resources = [
     "assets/icon*.png",
