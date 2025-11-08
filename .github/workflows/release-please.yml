@@ -199,94 +199,29 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
-          set -e
-
-          # Verify secret is available (skip if not set)
+          # Skip if certificate not set
           if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "⚠️ APPLE_CERTIFICATE secret is not set - skipping code signing"
+            echo "⚠️ APPLE_CERTIFICATE not set - skipping code signing"
             exit 0
           fi
 
-          if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
-            echo "ERROR: APPLE_CERTIFICATE_PASSWORD secret is empty or not set"
-            exit 1
-          fi
-
-          # Import certificate (same approach as cook.md)
-          echo "Decoding certificate..."
+          # Decode certificate
           echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
 
-          # Check if certificate file was created and has content
-          if [ ! -f certificate.p12 ]; then
-            echo "ERROR: certificate.p12 was not created"
-            exit 1
-          fi
-
-          CERT_SIZE=$(wc -c < certificate.p12)
-          echo "Certificate file size: $CERT_SIZE bytes"
-          if [ "$CERT_SIZE" -lt 100 ]; then
-            echo "ERROR: Certificate file is too small (likely empty or invalid)"
-            exit 1
-          fi
-
-          echo "Creating keychain..."
+          # Create and configure keychain
           security create-keychain -p actions temp.keychain
-
-          echo "Adding keychain to search list..."
           security list-keychains -d user -s temp.keychain login.keychain
-
-          echo "Setting as default keychain..."
           security default-keychain -s temp.keychain
-
-          echo "Unlocking keychain..."
           security unlock-keychain -p actions temp.keychain
-
-          echo "Setting keychain settings..."
           security set-keychain-settings -lut 21600 temp.keychain
 
-          echo "Importing certificate..."
-          # Use -A to allow all applications to access (required for CI/CD)
-          IMPORT_OUTPUT=$(security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -A 2>&1)
-          IMPORT_EXIT_CODE=$?
+          # Import certificate (-A allows all applications to access)
+          security import certificate.p12 -k temp.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -A
 
-          echo "$IMPORT_OUTPUT"
+          # Allow codesign to access the keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain
 
-          if [ $IMPORT_EXIT_CODE -ne 0 ]; then
-            echo ""
-            echo "ERROR: Failed to import certificate (exit code: $IMPORT_EXIT_CODE)"
-            if echo "$IMPORT_OUTPUT" | grep -q "MAC verification failed"; then
-              echo "❌ Wrong APPLE_CERTIFICATE_PASSWORD"
-            elif echo "$IMPORT_OUTPUT" | grep -q "format"; then
-              echo "❌ Invalid certificate format - not a valid .p12 file"
-            else
-              echo "❌ Unknown import error - check the output above"
-            fi
-            exit 1
-          fi
-
-          echo "Setting key partition list..."
-          if ! security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions temp.keychain 2>&1; then
-            echo "ERROR: Failed to set key partition list"
-            exit 1
-          fi
-
-          echo "✅ Certificate import complete"
-          echo "Verifying identities in keychain:"
-          security find-identity -v -p codesigning temp.keychain
-
-          # Also check in all keychains
-          echo ""
-          echo "All available codesigning identities:"
-          security find-identity -v -p codesigning
-
-          # Verify we actually have a signing identity
-          IDENTITY_COUNT=$(security find-identity -v -p codesigning temp.keychain | grep -c "valid identities found" || true)
-          if security find-identity -v -p codesigning temp.keychain | grep -q "0 valid identities found"; then
-            echo "ERROR: No valid code signing identities found after import"
-            echo "The certificate may not be a valid Developer ID Application certificate"
-            exit 1
-          fi
-
+          echo "✅ Certificate imported successfully"
           rm certificate.p12
 
       - name: Configure macOS Signing (macOS)
@@ -322,43 +257,27 @@ jobs:
 
           # Find the app bundle
           APP_BUNDLE=$(find . -name "Cook Sync.app" -type d | head -1)
-
           if [ -z "$APP_BUNDLE" ]; then
             echo "ERROR: Could not find app bundle"
-            find . -name "*.app" -type d
             exit 1
           fi
 
-          echo "Found app bundle: $APP_BUNDLE"
-          echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
+          echo "Signing app bundle with hardened runtime..."
 
-          # Verify keychain and certificate are accessible
-          echo "Available signing identities in keychain:"
-          security find-identity -v -p codesigning temp.keychain
-
-          # Ensure keychain is unlocked
+          # Unlock keychain
           security unlock-keychain -p actions temp.keychain
 
-          echo ""
-          echo "Signing with hardened runtime and entitlements..."
-
-          # Sign the entire app bundle with --deep to sign all nested code
-          codesign --force --deep --options runtime --sign "$APPLE_SIGNING_IDENTITY" \
+          # Sign with hardened runtime and entitlements
+          codesign --force --deep --options runtime \
+            --sign "$APPLE_SIGNING_IDENTITY" \
             --entitlements assets/entitlements.plist \
             --timestamp \
-            --verbose \
             "$APP_BUNDLE"
 
-          echo ""
-          echo "=== Verifying signature ==="
-          codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+          # Verify signature
+          codesign --verify --deep --strict "$APP_BUNDLE"
 
-          echo ""
-          echo "=== Checking signature details ==="
-          codesign -dv --verbose=4 "$APP_BUNDLE" 2>&1
-
-          echo ""
-          echo "✓ App bundle signed with hardened runtime"
+          echo "✅ App bundle signed with hardened runtime"
 
       - name: Create DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -381,49 +300,22 @@ jobs:
             exit 0
           fi
 
-          # Find the DMG file
+          # Find and verify DMG
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
-          echo "Verifying DMG: $DMG_FILE"
+          echo "Verifying code signature..."
 
-          # Mount the DMG and check the app (skip license agreement prompt)
+          # Mount DMG and verify app signature
           hdiutil attach "$DMG_FILE" -mountpoint /Volumes/CookSync -nobrowse -noverify -noautoopen
           APP_PATH="/Volumes/CookSync/Cook Sync.app"
 
-          if [ -d "$APP_PATH" ]; then
-            echo "=== Checking code signature of app bundle ==="
-            codesign -dv --verbose=4 "$APP_PATH" 2>&1
-
-            echo ""
-            echo "=== Verifying signature ==="
-            if codesign --verify --deep --strict --verbose=2 "$APP_PATH" 2>&1; then
-              echo "✓ Signature verification passed"
-            else
-              echo "❌ Signature verification FAILED"
-              exit 1
-            fi
-
-            echo ""
-            echo "=== Checking for hardened runtime ==="
-            CODESIGN_OUTPUT=$(codesign -dv "$APP_PATH" 2>&1)
-            if echo "$CODESIGN_OUTPUT" | grep -q "runtime"; then
-              echo "✓ Hardened runtime is ENABLED"
-            else
-              echo "❌ Hardened runtime is NOT enabled"
-              echo "This will cause notarization to fail!"
-              exit 1
-            fi
-
-            echo ""
-            echo "=== Checking entitlements ==="
-            codesign -d --entitlements - "$APP_PATH" 2>&1 || echo "No entitlements found"
-          else
-            echo "ERROR: App bundle not found at $APP_PATH"
-            ls -la /Volumes/CookSync/
-            exit 1
-          fi
+          # Verify signature and hardened runtime
+          codesign --verify --deep --strict "$APP_PATH"
+          codesign -dv "$APP_PATH" 2>&1 | grep -q "runtime"
 
           # Unmount
           hdiutil detach /Volumes/CookSync
+
+          echo "✅ Code signature verified with hardened runtime"
 
       - name: Notarize DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -439,50 +331,33 @@ jobs:
             exit 0
           fi
 
-          # Find the DMG file
           DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
-          echo "Found DMG: $DMG_FILE"
+          echo "Submitting DMG for notarization..."
 
-          # Submit for notarization and capture output
-          echo "Submitting to Apple notarization service..."
+          # Submit for notarization
           NOTARIZE_OUTPUT=$(xcrun notarytool submit "$DMG_FILE" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
             --wait 2>&1)
 
-          echo "$NOTARIZE_OUTPUT"
-
-          # Extract submission ID for potential log retrieval
-          SUBMISSION_ID=$(echo "$NOTARIZE_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
-          echo "Submission ID: $SUBMISSION_ID"
-
-          # Check if notarization succeeded
+          # Check status
           if echo "$NOTARIZE_OUTPUT" | grep -q "status: Accepted"; then
-            echo "✓ Notarization accepted"
-
             # Staple the notarization ticket
-            echo "Stapling notarization ticket..."
             xcrun stapler staple "$DMG_FILE"
-
-            # Verify stapling
-            echo "Verifying staple..."
             xcrun stapler validate "$DMG_FILE"
-
-            echo "✓ Notarization complete and stapled"
+            echo "✅ Notarization complete and stapled"
           else
-            echo "❌ Notarization failed or returned non-Accepted status"
-
-            # Try to get detailed log
+            echo "❌ Notarization failed"
+            echo "$NOTARIZE_OUTPUT"
+            # Get detailed log
+            SUBMISSION_ID=$(echo "$NOTARIZE_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
             if [ ! -z "$SUBMISSION_ID" ]; then
-              echo ""
-              echo "Fetching notarization log for debugging..."
               xcrun notarytool log "$SUBMISSION_ID" \
                 --apple-id "$APPLE_ID" \
                 --password "$APPLE_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" || echo "Could not fetch log"
+                --team-id "$APPLE_TEAM_ID"
             fi
-
             exit 1
           fi
 
