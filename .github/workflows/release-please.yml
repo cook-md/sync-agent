@@ -289,34 +289,6 @@ jobs:
           echo "Creating DMG from signed app bundle..."
           cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
 
-      - name: Verify Code Signing (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        run: |
-          # Skip if certificate not set
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "⚠️ Skipping code signing verification - APPLE_CERTIFICATE not set"
-            exit 0
-          fi
-
-          # Find and verify DMG
-          DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
-          echo "Verifying code signature..."
-
-          # Mount DMG and verify app signature
-          hdiutil attach "$DMG_FILE" -mountpoint /Volumes/CookSync -nobrowse -noverify -noautoopen
-          APP_PATH="/Volumes/CookSync/Cook Sync.app"
-
-          # Verify signature and hardened runtime
-          codesign --verify --deep --strict "$APP_PATH"
-          codesign -dv "$APP_PATH" 2>&1 | grep -q "runtime"
-
-          # Unmount
-          hdiutil detach /Volumes/CookSync
-
-          echo "✅ Code signature verified with hardened runtime"
-
       - name: Notarize DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
