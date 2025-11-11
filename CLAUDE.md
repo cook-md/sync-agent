@@ -6,6 +6,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Cook Sync Agent is a lightweight, cross-platform synchronization agent for Cook.md that runs in the background and syncs recipes. It's built in Rust and replaces the deprecated Tauri-based desktop app.
 
+## Git Commit Safety Rules
+
+**CRITICAL: ALWAYS follow these rules when committing:**
+
+1. **NEVER use `git add -A` or `git add .`** - Always add specific files only
+2. **ALWAYS check `git status` before committing** - Review what will be committed
+3. **NEVER commit build artifacts:**
+   - `*.dmg`, `*.AppImage`, `*.exe`, `*.msi`
+   - `*.app` directories
+   - `target/` directory contents
+   - `*.sig` signature files
+   - Any files in `Cook Sync.app/`
+4. **NEVER commit generated files:**
+   - `IMPLEMENTATION_SUMMARY.md`
+   - `LINUX_APPIMAGE_TESTING.md`
+   - Any files with `_0.6.*` version patterns
+5. **Always use explicit file paths:**
+   - `git add .github/workflows/release-please.yml`
+   - `git add src/main.rs`
+   - `git add CLAUDE.md`
+6. **After staging, verify with:** `git diff --cached --name-only`
+7. **If you accidentally stage wrong files:** `git reset HEAD <file>` to unstage
+
+**Workflow for commits:**
+```bash
+# 1. Check what changed
+git status
+
+# 2. Add ONLY the files you modified intentionally
+git add path/to/specific/file1 path/to/specific/file2
+
+# 3. Verify what's staged
+git diff --cached --name-only
+
+# 4. If wrong files staged, unstage them
+git reset HEAD unwanted/file
+
+# 5. Commit only when verified
+git commit -m "message"
+```
+
 ## Development Commands
 
 ### Building and Running

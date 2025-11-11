@@ -7,3 +7,15 @@ sparkle-keys
 
 # Signing keys (add to GitHub Secrets)
 .signing-key.pem*
+
+# Build artifacts
+*.dmg
+*.AppImage
+*.exe
+*.msi
+*.sig
+*.app
+
+# Generated documentation
+IMPLEMENTATION_SUMMARY.md
+LINUX_APPIMAGE_TESTING.md
