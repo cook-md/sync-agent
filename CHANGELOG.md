@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.24](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.23...cook-sync-v0.6.24) (2025-11-11)
+
+
+### Bug Fixes
+
+* add --target back to cargo packager command ([10388b2](https://github.com/cook-md/sync-agent/commit/10388b237cda5aa857fea7a7c615b179d68d042f))
+
 ## [0.6.23](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.22...cook-sync-v0.6.23) (2025-11-11)
 
 
