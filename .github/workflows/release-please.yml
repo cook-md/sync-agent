@@ -78,11 +78,7 @@ jobs:
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
-          # Shared cache key across workflow runs for aggressive caching
-          shared-key: release-${{ matrix.platform.target }}
-          # Prefix doesn't change with version to maximize cache reuse
-          prefix-key: v3-rust
-          # Save cache even on build failures
+          shared-key: ${{ matrix.platform.os }}
           cache-on-failure: true
 
       - name: Cache cargo-packager

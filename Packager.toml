@@ -24,9 +24,10 @@ resources = [
 # Icons for all platforms
 icons = ["assets/icon-256.png", "assets/icon-128.png", "assets/icon-48.png", "assets/icon-32.png"]
 
+# Directory where binaries are located after cargo build --release
+binariesDir = "target/release"
+
 # Main binary configuration
-# When using --target, cargo-packager resolves the binary from target/<target>/release/
-# We specify just the binary name and let cargo-packager find it in the correct location
 [[binaries]]
 path = "cook-sync"
 main = true
