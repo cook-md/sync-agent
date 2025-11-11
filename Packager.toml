@@ -5,7 +5,7 @@
 name = "cook-sync"
 product-name = "Cook Sync"
 identifier = "com.cook.sync-agent"
-version = "0.6.2"
+# Version auto-detected from Cargo.toml
 authors = ["Alexey Dubovskoy"]
 publisher = "Cook.md"
 description = "CookCloud sync agent for syncing recipes with Cook.md"
@@ -36,8 +36,8 @@ main = true
 minimum-system-version = "10.13"
 # Entitlements file for code signing (enables hardened runtime automatically)
 entitlements = "assets/entitlements.plist"
-# Signing identity will be read from APPLE_SIGNING_IDENTITY environment variable
-# Set in CI/CD or locally: export APPLE_SIGNING_IDENTITY="Developer ID Application: YOUR_NAME (TEAM_ID)"
+# Code signing identity (can be overridden by APPLE_SIGNING_IDENTITY environment variable)
+signing-identity = "Developer ID Application: Alexey Dubovskoy (LNX77239P8)"
 
 [dmg]
 window-size = { width = 660, height = 400 }

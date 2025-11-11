@@ -65,36 +65,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Sync version and configure binary path
-        shell: bash
-        run: |
-          VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
-          echo "Syncing version $VERSION to Packager.toml"
-          # Use perl for cross-platform sed replacement
-          perl -i -pe "s/^version = .*/version = \"$VERSION\"/" Packager.toml
-          cat Packager.toml | grep '^version'
-
-          echo ""
-          echo "Configuring binary path for cross-compilation..."
-          TARGET="${{ matrix.platform.target }}"
-          if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
-            BINARY_PATH="target/$TARGET/release/cook-sync.exe"
-          else
-            BINARY_PATH="target/$TARGET/release/cook-sync"
-          fi
-          echo "Binary path: $BINARY_PATH"
-          # Update the binary path in Packager.toml
-          perl -i -pe "s|^path = .*|path = \"$BINARY_PATH\"|" Packager.toml
-          echo "Updated Packager.toml binary configuration:"
-          grep -A 2 '^\[\[binaries\]\]' Packager.toml
-
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform.target }}
-
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -111,13 +85,20 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-packager
-          key: ${{ runner.os }}-cargo-packager-v1
+          key: ${{ runner.os }}-cargo-packager-0.11.7
           restore-keys: |
             ${{ runner.os }}-cargo-packager-
 
       - name: Install cargo-packager
-        if: steps.cache-cargo-packager.outputs.cache-hit != 'true'
-        run: cargo install cargo-packager --locked
+        run: |
+          if [ "${{ steps.cache-cargo-packager.outputs.cache-hit }}" != "true" ]; then
+            echo "Installing cargo-packager..."
+            cargo install cargo-packager --locked --force
+          else
+            echo "Using cached cargo-packager"
+            cargo-packager --version
+          fi
+        shell: bash
 
       - name: Install Linux dependencies
         if: matrix.platform.os == 'ubuntu-22.04'
@@ -136,62 +117,6 @@ jobs:
             echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
 
-      - name: Verify macOS Secrets (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          echo "Checking macOS signing secrets..."
-          MISSING_SECRETS=()
-
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            MISSING_SECRETS+=("APPLE_CERTIFICATE")
-          fi
-
-          if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
-            MISSING_SECRETS+=("APPLE_CERTIFICATE_PASSWORD")
-          fi
-
-          if [ -z "$APPLE_SIGNING_IDENTITY" ]; then
-            MISSING_SECRETS+=("APPLE_SIGNING_IDENTITY")
-          fi
-
-          if [ -z "$APPLE_ID" ]; then
-            MISSING_SECRETS+=("APPLE_ID")
-          fi
-
-          if [ -z "$APPLE_PASSWORD" ]; then
-            MISSING_SECRETS+=("APPLE_PASSWORD")
-          fi
-
-          if [ -z "$APPLE_TEAM_ID" ]; then
-            MISSING_SECRETS+=("APPLE_TEAM_ID")
-          fi
-
-          if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then
-            echo "❌ ERROR: The following secrets are not configured:"
-            for secret in "${MISSING_SECRETS[@]}"; do
-              echo "  - $secret"
-            done
-            echo ""
-            echo "To configure secrets, copy them from cooklang/thereciper:"
-            echo "  gh secret set APPLE_CERTIFICATE --repo cook-md/sync-agent"
-            echo "  gh secret set APPLE_CERTIFICATE_PASSWORD --repo cook-md/sync-agent"
-            echo "  gh secret set APPLE_SIGNING_IDENTITY --repo cook-md/sync-agent"
-            echo "  gh secret set APPLE_ID --repo cook-md/sync-agent"
-            echo "  gh secret set APPLE_PASSWORD --repo cook-md/sync-agent"
-            echo "  gh secret set APPLE_TEAM_ID --repo cook-md/sync-agent"
-            echo ""
-            echo "⚠️ WARNING: macOS code signing and notarization will be skipped"
-          else
-            echo "✅ All macOS signing secrets are configured"
-          fi
-
       - name: Determine package format
         id: format
         run: |
@@ -206,28 +131,6 @@ jobs:
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.platform.target }}
-        env:
-          RUSTC_WRAPPER: sccache
-
-      - name: Verify binary exists
-        shell: bash
-        run: |
-          BINARY="target/${{ matrix.platform.target }}/release/cook-sync"
-          if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
-            BINARY="${BINARY}.exe"
-          fi
-
-          if [ ! -f "$BINARY" ]; then
-            echo "❌ Binary not found at: $BINARY"
-            echo ""
-            echo "Contents of target directory:"
-            find target -name "cook-sync*" -type f
-            exit 1
-          fi
-
-          echo "✅ Binary found at: $BINARY"
-          ls -lh "$BINARY"
-          file "$BINARY" || true
 
       - name: Import Code Signing Certificate (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -260,38 +163,7 @@ jobs:
           echo "✅ Certificate imported successfully"
           rm certificate.p12
 
-      - name: Configure macOS Signing (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: |
-          # Use the signing identity from secrets
-          # This matches the identity in the imported certificate
-          echo "Using signing identity: $APPLE_SIGNING_IDENTITY"
-          echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
-
-      - name: Package application
-        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
-        env:
-          RUSTC_WRAPPER: sccache
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
-          CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
-          # GTK version for linuxdeploy plugin (Linux only)
-          DEPLOY_GTK_VERSION: 3
-
-      - name: List packager output
-        if: always()
-        shell: bash
-        run: |
-          echo "=== All package artifacts ==="
-          find target/release/bundle -type f 2>/dev/null || echo "⚠️ No bundle directory found"
-          echo ""
-          echo "=== Directory structure ==="
-          ls -R target/release/bundle 2>/dev/null || echo "⚠️ No bundle directory found"
-
-      - name: Notarize DMG (macOS)
+      - name: Setup notarization profile (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -301,39 +173,28 @@ jobs:
         run: |
           # Skip if certificate not set
           if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "⚠️ Skipping notarization - APPLE_CERTIFICATE not set"
+            echo "⚠️ Skipping notarization setup - APPLE_CERTIFICATE not set"
             exit 0
           fi
 
-          DMG_FILE=$(find . -name "*.dmg" -type f | head -1)
-          echo "Submitting DMG for notarization..."
-
-          # Submit for notarization
-          NOTARIZE_OUTPUT=$(xcrun notarytool submit "$DMG_FILE" \
+          echo "Creating notarization profile for cargo-packager..."
+          xcrun notarytool store-credentials "cook-sync-ci" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait 2>&1)
+            --team-id "$APPLE_TEAM_ID"
 
-          # Check status
-          if echo "$NOTARIZE_OUTPUT" | grep -q "status: Accepted"; then
-            # Staple the notarization ticket
-            xcrun stapler staple "$DMG_FILE"
-            xcrun stapler validate "$DMG_FILE"
-            echo "✅ Notarization complete and stapled"
-          else
-            echo "❌ Notarization failed"
-            echo "$NOTARIZE_OUTPUT"
-            # Get detailed log
-            SUBMISSION_ID=$(echo "$NOTARIZE_OUTPUT" | grep "id:" | head -1 | awk '{print $2}')
-            if [ ! -z "$SUBMISSION_ID" ]; then
-              xcrun notarytool log "$SUBMISSION_ID" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID"
-            fi
-            exit 1
-          fi
+          echo "✅ Notarization profile 'cook-sync-ci' created"
+
+      - name: Package application
+        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_KEYCHAIN_PROFILE: cook-sync-ci
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+          CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
+          # GTK version for linuxdeploy plugin (Linux only)
+          DEPLOY_GTK_VERSION: 3
 
       - name: Cleanup Keychain (macOS)
         if: always() && matrix.platform.os == 'macos-latest'
@@ -341,17 +202,30 @@ jobs:
           security delete-keychain temp.keychain || true
 
       - name: Prepare release assets
+        shell: bash
         run: |
           mkdir -p release-assets
+
           echo "=== Looking for package files ==="
-          find target/release/bundle -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null || true
+          FOUND=0
 
-          echo "=== Copying to release-assets ==="
-          find target/release/bundle -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -exec cp -v {} release-assets/ \;
+          # Search entire target directory for package files
+          for file in $(find target -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null); do
+            echo "Found: $file"
+            cp -v "$file" release-assets/
+            FOUND=1
+          done
 
+          if [ $FOUND -eq 0 ]; then
+            echo "❌ ERROR: No package files found"
+            echo "Full target directory listing:"
+            find target -type f 2>/dev/null | head -50 || true
+            exit 1
+          fi
+
+          echo ""
           echo "=== Release assets prepared ==="
           ls -lh release-assets/
-        shell: bash
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -359,10 +233,6 @@ jobs:
           name: packages-${{ matrix.platform.artifact_name }}
           path: release-assets/*
           if-no-files-found: error
-
-      - name: Show sccache stats
-        if: always()
-        run: sccache --show-stats
 
   generate-manifest:
     name: Generate Update Manifest
