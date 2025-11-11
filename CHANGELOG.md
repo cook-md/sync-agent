@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.21](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.20...cook-sync-v0.6.21) (2025-11-11)
+
+
+### Bug Fixes
+
+* Phase 1 - Critical release pipeline fixes ([af9c114](https://github.com/cook-md/sync-agent/commit/af9c114893022d3f42895e00a0f4c19ef7d39e82))
+
 ## [0.6.20](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.19...cook-sync-v0.6.20) (2025-11-08)
 
 
