@@ -198,6 +198,26 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
 
+      - name: Verify binary exists
+        shell: bash
+        run: |
+          BINARY="target/${{ matrix.platform.target }}/release/cook-sync"
+          if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
+            BINARY="${BINARY}.exe"
+          fi
+
+          if [ ! -f "$BINARY" ]; then
+            echo "❌ Binary not found at: $BINARY"
+            echo ""
+            echo "Contents of target directory:"
+            find target -name "cook-sync*" -type f
+            exit 1
+          fi
+
+          echo "✅ Binary found at: $BINARY"
+          ls -lh "$BINARY"
+          file "$BINARY" || true
+
       - name: Import Code Signing Certificate (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
@@ -249,6 +269,16 @@ jobs:
           # GTK version for linuxdeploy plugin (Linux only)
           DEPLOY_GTK_VERSION: 3
 
+      - name: List packager output
+        if: always()
+        shell: bash
+        run: |
+          echo "=== All package artifacts ==="
+          find target/release/bundle -type f 2>/dev/null || echo "⚠️ No bundle directory found"
+          echo ""
+          echo "=== Directory structure ==="
+          ls -R target/release/bundle 2>/dev/null || echo "⚠️ No bundle directory found"
+
       - name: Sign with Hardened Runtime (macOS)
         if: matrix.platform.os == 'macos-latest'
         env:
@@ -294,8 +324,20 @@ jobs:
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
         run: |
           echo "Creating DMG from signed app bundle..."
-          # cargo-packager should reuse the existing signed .app bundle
-          cargo packager --release --target ${{ matrix.platform.target }} --formats dmg --verbose
+          cargo packager --release \
+            --target ${{ matrix.platform.target }} \
+            --formats dmg \
+            --binaries-dir target/${{ matrix.platform.target }}/release \
+            --verbose
+
+      - name: List DMG output
+        if: always() && matrix.platform.os == 'macos-latest'
+        run: |
+          echo "=== DMG files created ==="
+          find target/release/bundle/dmg -type f 2>/dev/null || echo "⚠️ No DMG directory found"
+          echo ""
+          echo "=== Complete bundle structure ==="
+          ls -R target/release/bundle 2>/dev/null || echo "⚠️ No bundle directory found"
 
       - name: Notarize DMG (macOS)
         if: matrix.platform.os == 'macos-latest'
@@ -346,16 +388,24 @@ jobs:
         run: |
           security delete-keychain temp.keychain || true
 
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          echo "=== Looking for package files ==="
+          find target/release/bundle -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null || true
+
+          echo "=== Copying to release-assets ==="
+          find target/release/bundle -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -exec cp -v {} release-assets/ \;
+
+          echo "=== Release assets prepared ==="
+          ls -lh release-assets/
+        shell: bash
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.platform.artifact_name }}
-          path: |
-            *.dmg
-            *.AppImage
-            *.exe
-            *.msi
-            *.sig
+          path: release-assets/*
           if-no-files-found: error
 
       - name: Show sccache stats
