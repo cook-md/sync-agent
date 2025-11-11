@@ -65,7 +65,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Sync version to Packager.toml
+      - name: Sync version and configure binary path
         shell: bash
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
@@ -73,6 +73,20 @@ jobs:
           # Use perl for cross-platform sed replacement
           perl -i -pe "s/^version = .*/version = \"$VERSION\"/" Packager.toml
           cat Packager.toml | grep '^version'
+
+          echo ""
+          echo "Configuring binary path for cross-compilation..."
+          TARGET="${{ matrix.platform.target }}"
+          if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
+            BINARY_PATH="target/$TARGET/release/cook-sync.exe"
+          else
+            BINARY_PATH="target/$TARGET/release/cook-sync"
+          fi
+          echo "Binary path: $BINARY_PATH"
+          # Update the binary path in Packager.toml
+          perl -i -pe "s|^path = .*|path = \"$BINARY_PATH\"|" Packager.toml
+          echo "Updated Packager.toml binary configuration:"
+          grep -A 2 '^\[\[binaries\]\]' Packager.toml
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -260,7 +274,7 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
       - name: Package application
-        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --binaries-dir target/${{ matrix.platform.target }}/release --verbose
+        run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
         env:
           RUSTC_WRAPPER: sccache
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
@@ -324,11 +338,7 @@ jobs:
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
         run: |
           echo "Creating DMG from signed app bundle..."
-          cargo packager --release \
-            --target ${{ matrix.platform.target }} \
-            --formats dmg \
-            --binaries-dir target/${{ matrix.platform.target }}/release \
-            --verbose
+          cargo packager --release --formats dmg --verbose
 
       - name: List DMG output
         if: always() && matrix.platform.os == 'macos-latest'
