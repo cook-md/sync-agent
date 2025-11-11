@@ -47,6 +47,12 @@ git reset HEAD unwanted/file
 git commit -m "message"
 ```
 
+**Commit Message Format:**
+- Write clear, concise commit messages
+- Use imperative mood ("fix:" not "fixed:")
+- **NEVER add Claude footer, co-authored tags, or "Generated with Claude" mentions**
+- Keep it simple and professional
+
 ## Development Commands
 
 ### Building and Running

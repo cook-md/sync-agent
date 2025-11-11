@@ -102,18 +102,16 @@ jobs:
           # Shared cache key across workflow runs for aggressive caching
           shared-key: release-${{ matrix.platform.target }}
           # Prefix doesn't change with version to maximize cache reuse
-          prefix-key: v2-rust
+          prefix-key: v3-rust
           # Save cache even on build failures
           cache-on-failure: true
-          # Save cache for main branch builds
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Cache cargo-packager
         id: cache-cargo-packager
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-packager
-          key: ${{ runner.os }}-cargo-packager-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-packager-v1
           restore-keys: |
             ${{ runner.os }}-cargo-packager-
 
@@ -200,8 +198,7 @@ jobs:
           if [ "${{ matrix.platform.os }}" = "ubuntu-22.04" ]; then
             echo "format=appimage" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.platform.os }}" = "macos-latest" ]; then
-            # Build app bundle first so we can sign it with hardened runtime
-            echo "format=app" >> $GITHUB_OUTPUT
+            echo "format=dmg" >> $GITHUB_OUTPUT
           elif [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
             echo "format=nsis" >> $GITHUB_OUTPUT
           fi
@@ -277,6 +274,7 @@ jobs:
         run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
         env:
           RUSTC_WRAPPER: sccache
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
           CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
@@ -291,62 +289,6 @@ jobs:
           find target/release/bundle -type f 2>/dev/null || echo "⚠️ No bundle directory found"
           echo ""
           echo "=== Directory structure ==="
-          ls -R target/release/bundle 2>/dev/null || echo "⚠️ No bundle directory found"
-
-      - name: Sign with Hardened Runtime (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        run: |
-          # Skip if certificate not set
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "⚠️ Skipping code signing - APPLE_CERTIFICATE not set"
-            exit 0
-          fi
-
-          # Find the app bundle
-          APP_BUNDLE=$(find . -name "Cook Sync.app" -type d | head -1)
-          if [ -z "$APP_BUNDLE" ]; then
-            echo "ERROR: Could not find app bundle"
-            exit 1
-          fi
-
-          echo "Signing app bundle with hardened runtime..."
-
-          # Unlock keychain
-          security unlock-keychain -p actions temp.keychain
-
-          # Sign with hardened runtime and entitlements
-          codesign --force --deep --options runtime \
-            --sign "$APPLE_SIGNING_IDENTITY" \
-            --entitlements assets/entitlements.plist \
-            --timestamp \
-            "$APP_BUNDLE"
-
-          # Verify signature
-          codesign --verify --deep --strict "$APP_BUNDLE"
-
-          echo "✅ App bundle signed with hardened runtime"
-
-      - name: Create DMG (macOS)
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          RUSTC_WRAPPER: sccache
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
-          CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
-        run: |
-          echo "Creating DMG from signed app bundle..."
-          cargo packager --release --formats dmg --verbose
-
-      - name: List DMG output
-        if: always() && matrix.platform.os == 'macos-latest'
-        run: |
-          echo "=== DMG files created ==="
-          find target/release/bundle/dmg -type f 2>/dev/null || echo "⚠️ No DMG directory found"
-          echo ""
-          echo "=== Complete bundle structure ==="
           ls -R target/release/bundle 2>/dev/null || echo "⚠️ No bundle directory found"
 
       - name: Notarize DMG (macOS)
