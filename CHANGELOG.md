@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.23](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.22...cook-sync-v0.6.23) (2025-11-11)
+
+
+### Bug Fixes
+
+* simplify macOS packaging and improve cache reuse ([6d15882](https://github.com/cook-md/sync-agent/commit/6d1588230d71c2e0a84a6e257f9ef2b7b08312c5))
+
 ## [0.6.22](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.21...cook-sync-v0.6.22) (2025-11-11)
 
 
