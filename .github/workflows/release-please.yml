@@ -45,7 +45,7 @@ jobs:
             artifact_name: linux-x86_64
 
           - name: macOS x86_64
-            os: macos-latest
+            os: macos-13
             target: x86_64-apple-darwin
             artifact_name: macos-x86_64
 
@@ -65,10 +65,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Sync version to Packager.toml
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          echo "Syncing version $VERSION to Packager.toml"
+          perl -i -pe "s/^version = .*/version = \"$VERSION\"/" Packager.toml
+
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.platform.target }}
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -130,10 +135,10 @@ jobs:
         shell: bash
 
       - name: Build release binary
-        run: cargo build --release --target ${{ matrix.platform.target }}
+        run: cargo build --release
 
       - name: Import Code Signing Certificate (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -164,7 +169,7 @@ jobs:
           rm certificate.p12
 
       - name: Setup notarization profile (macOS)
-        if: matrix.platform.os == 'macos-latest'
+        if: runner.os == 'macOS'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -186,7 +191,7 @@ jobs:
           echo "✅ Notarization profile 'cook-sync-ci' created"
 
       - name: Package application
-        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
+        run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_KEYCHAIN_PROFILE: cook-sync-ci
@@ -197,7 +202,7 @@ jobs:
           DEPLOY_GTK_VERSION: 3
 
       - name: Cleanup Keychain (macOS)
-        if: always() && matrix.platform.os == 'macos-latest'
+        if: always() && runner.os == 'macOS'
         run: |
           security delete-keychain temp.keychain || true
 
