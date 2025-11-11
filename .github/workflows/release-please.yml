@@ -271,7 +271,7 @@ jobs:
           echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY" >> $GITHUB_ENV
 
       - name: Package application
-        run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
+        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
         env:
           RUSTC_WRAPPER: sccache
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
