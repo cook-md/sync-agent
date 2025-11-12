@@ -86,9 +86,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cargo-packager
-          key: ${{ runner.os }}-cargo-packager-0.11.7
+          key: ${{ matrix.platform.target }}-cargo-packager-0.11.7
           restore-keys: |
-            ${{ runner.os }}-cargo-packager-
+            ${{ matrix.platform.target }}-cargo-packager-
 
       - name: Install cargo-packager
         run: |
