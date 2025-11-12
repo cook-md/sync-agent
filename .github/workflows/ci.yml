@@ -55,12 +55,11 @@ jobs:
         run: |
           sudo apt-get update
           # Install modern libayatana-appindicator3 for system tray support (actively maintained)
-          # Also install libappindicator3 for backward compatibility
+          # The compiled binary will work on systems with either ayatana or legacy appindicator
           sudo apt-get install -y \
             libglib2.0-dev \
             libgtk-3-dev \
             libayatana-appindicator3-dev \
-            libappindicator3-dev \
             libxdo-dev
 
       - name: Check formatting

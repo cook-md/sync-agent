@@ -130,7 +130,7 @@ If building from source, you'll need these packages:
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt install libappindicator3-dev libgtk-3-dev
+sudo apt install libayatana-appindicator3-dev libgtk-3-dev libxdo-dev
 ```
 
 **Fedora/RHEL:**
