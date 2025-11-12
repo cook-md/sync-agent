@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.34](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.33...cook-sync-v0.6.34) (2025-11-12)
+
+
+### Bug Fixes
+
+* remove conflicting libappindicator3-dev from CI workflow and docs ([a013293](https://github.com/cook-md/sync-agent/commit/a013293cc550b0c15b8e7b1e59667973262f7b4a))
+
 ## [0.6.33](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.32...cook-sync-v0.6.33) (2025-11-12)
 
 
