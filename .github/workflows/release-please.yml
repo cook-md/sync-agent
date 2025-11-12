@@ -121,11 +121,11 @@ jobs:
       - name: Determine package format
         id: format
         run: |
-          if [ "${{ matrix.platform.os }}" = "ubuntu-22.04" ]; then
+          if [ "${{ runner.os }}" = "Linux" ]; then
             echo "format=appimage" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform.os }}" = "macos-latest" ]; then
+          elif [ "${{ runner.os }}" = "macOS" ]; then
             echo "format=dmg" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
+          elif [ "${{ runner.os }}" = "Windows" ]; then
             echo "format=nsis" >> $GITHUB_OUTPUT
           fi
         shell: bash
@@ -211,11 +211,12 @@ jobs:
           FOUND=0
 
           # cargo-packager creates packages in project root, search for them
-          for file in $(find . -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null); do
+          # Use -print0 and while read to handle filenames with spaces
+          while IFS= read -r -d '' file; do
             echo "Found: $file"
             cp -v "$file" release-assets/
             FOUND=1
-          done
+          done < <(find . -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -print0 2>/dev/null)
 
           if [ $FOUND -eq 0 ]; then
             echo "❌ ERROR: No package files found in project root"
