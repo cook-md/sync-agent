@@ -51,12 +51,42 @@ application-folder-position = { x = 480, y = 170 }
 # This ensures the system tray icon works on distributions without libappindicator
 linuxdeployPlugins = { gtk = "https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh" }
 
-# Explicitly include libappindicator libraries for system tray support
+# Explicitly include libayatana-appindicator3 libraries for system tray support
+# libayatana-appindicator3 is the modern, actively maintained replacement for libappindicator3
+# It's required for system tray icons to work across different desktop environments
 libs = [
-    "libappindicator3.so.1",
+    # Core AppIndicator libraries (modern Ayatana versions)
+    "libayatana-appindicator3.so.1",
+    "libayatana-indicator3.so.7",
+
+    # DBus menu libraries (required by AppIndicator)
     "libdbusmenu-glib.so.4",
     "libdbusmenu-gtk3.so.4",
-    "libindicator3.so.7"
+
+    # Also include legacy libappindicator for compatibility with older systems
+    # Some distributions may only have the legacy version available
+    "libappindicator3.so.1",
+    "libindicator3.so.7",
+
+    # Additional GTK/GLib dependencies that may not be universally available
+    "libatk-1.0.so.0",
+    "libatk-bridge-2.0.so.0",
+    "libatspi.so.0",
+    "libcairo.so.2",
+    "libcairo-gobject.so.2",
+    "libpango-1.0.so.0",
+    "libpangocairo-1.0.so.0",
+    "libgdk-3.so.0",
+    "libgdk_pixbuf-2.0.so.0",
+    "libgio-2.0.so.0",
+    "libglib-2.0.so.0",
+    "libgmodule-2.0.so.0",
+    "libgobject-2.0.so.0",
+    "libgthread-2.0.so.0",
+    "libgtk-3.so.0",
+
+    # D-Bus libraries
+    "libdbus-1.so.3"
 ]
 
 # Exclude commonly available system libraries to reduce AppImage size
@@ -69,7 +99,9 @@ excludedLibs = [
     "libgcc_s.so*",
     "libstdc++.so*",
     "libX11.so*",
-    "libxcb.so*"
+    "libxcb.so*",
+    "libz.so*",
+    "librt.so*"
 ]
 
 # Windows NSIS configuration
