@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.29](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.28...cook-sync-v0.6.29) (2025-11-12)
+
+
+### Bug Fixes
+
+* next ([c87720a](https://github.com/cook-md/sync-agent/commit/c87720a6ab8e790d389985a43c30dd43546de539))
+
 ## [0.6.28](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.27...cook-sync-v0.6.28) (2025-11-12)
 
 
