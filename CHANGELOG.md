@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.30](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.29...cook-sync-v0.6.30) (2025-11-12)
+
+
+### Bug Fixes
+
+* app install ([c1e8538](https://github.com/cook-md/sync-agent/commit/c1e853880b9b6bb8593af9a432bfd2ff75a21fb8))
+
 ## [0.6.29](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.28...cook-sync-v0.6.29) (2025-11-12)
 
 
