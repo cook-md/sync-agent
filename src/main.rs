@@ -69,6 +69,12 @@ enum Commands {
 
     /// Check for updates
     Update,
+
+    /// Install desktop integration (Linux AppImage only)
+    Install,
+
+    /// Uninstall desktop integration (Linux AppImage only)
+    Uninstall,
 }
 
 #[tokio::main]
@@ -82,6 +88,10 @@ async fn main() -> Result<()> {
 
     // Initialize Sentry for error tracking
     sentry_integration::init_sentry();
+
+    // Auto-install desktop integration on first launch (Linux AppImage only)
+    #[cfg(target_os = "linux")]
+    check_and_auto_install()?;
 
     let cli = Cli::parse();
 
@@ -99,6 +109,8 @@ async fn main() -> Result<()> {
             show,
         }) => configure(recipes_dir, auto_start, auto_update, show).await,
         Some(Commands::Update) => check_update().await,
+        Some(Commands::Install) => install_integration(),
+        Some(Commands::Uninstall) => uninstall_integration(),
         None => {
             // If no command specified, start the daemon
             start_daemon().await
@@ -511,4 +523,104 @@ async fn check_update() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn install_integration() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use platform::{get_platform, PlatformIntegration};
+        let platform = get_platform();
+        platform.install_desktop_integration()?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        println!("Desktop integration is only available on Linux AppImages.");
+        println!("On macOS and Windows, the application is installed through standard installers.");
+        Ok(())
+    }
+}
+
+fn uninstall_integration() -> Result<()> {
+    #[cfg(target_os = "linux")]
+    {
+        use platform::{get_platform, PlatformIntegration};
+        let platform = get_platform();
+        platform.uninstall_desktop_integration()?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        println!("Desktop integration is only available on Linux AppImages.");
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn check_and_auto_install() -> Result<()> {
+    use platform::{get_platform, PlatformIntegration};
+
+    // Only auto-install if:
+    // 1. Running from AppImage
+    // 2. Desktop integration not already installed
+    // 3. Not running an explicit install/uninstall command
+
+    let platform = get_platform();
+
+    // Skip auto-install if user explicitly wants to manage integration manually
+    // Check args before they're parsed
+    let args: Vec<String> = std::env::args().collect();
+    if args
+        .iter()
+        .any(|arg| arg == "uninstall" || arg == "install")
+    {
+        return Ok(()); // User is managing integration manually
+    }
+
+    // Check if we're in an AppImage
+    if !is_running_from_appimage() {
+        return Ok(()); // Not an AppImage, skip
+    }
+
+    // Check if already installed
+    if platform.is_desktop_integration_installed()? {
+        return Ok(()); // Already installed, skip
+    }
+
+    // First launch from AppImage - auto-install
+    info!("First launch detected, installing desktop integration...");
+
+    match platform.install_desktop_integration() {
+        Ok(_) => {
+            // Silent success - don't interrupt the user
+            // They'll see the menu entry appear
+            info!("Desktop integration installed successfully");
+        }
+        Err(e) => {
+            // Log but don't fail - app should still work
+            error!("Failed to auto-install desktop integration: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn is_running_from_appimage() -> bool {
+    // Check APPIMAGE environment variable
+    if std::env::var("APPIMAGE").is_ok() {
+        return true;
+    }
+
+    // Check if exe path looks like AppImage mount
+    if let Ok(exe_path) = std::env::current_exe() {
+        let path_str = exe_path.to_string_lossy();
+        if path_str.contains(".AppImage") || path_str.contains("/tmp/.mount_") {
+            return true;
+        }
+    }
+
+    false
 }

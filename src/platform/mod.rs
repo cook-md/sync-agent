@@ -22,6 +22,24 @@ pub trait PlatformIntegration {
     fn watch_theme_changes(&self, _shutdown_signal: Arc<AtomicBool>) -> Option<ThemeWatcher> {
         None
     }
+
+    /// Check if desktop integration is installed (Linux AppImage only)
+    /// Returns true if desktop entry and icons are installed
+    fn is_desktop_integration_installed(&self) -> Result<bool> {
+        Ok(false) // Default: not installed
+    }
+
+    /// Install desktop integration (Linux AppImage only)
+    /// Creates desktop entry and installs application icons
+    fn install_desktop_integration(&self) -> Result<()> {
+        Ok(()) // Default no-op for non-Linux platforms
+    }
+
+    /// Uninstall desktop integration (Linux AppImage only)
+    /// Removes desktop entry and application icons
+    fn uninstall_desktop_integration(&self) -> Result<()> {
+        Ok(()) // Default no-op for non-Linux platforms
+    }
 }
 
 pub struct ThemeWatcher {

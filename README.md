@@ -50,8 +50,44 @@ curl -sSL https://github.com/Cooklang/sync-agent/releases/latest/download/cook-s
 
 **AppImage:**
 Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
-- Includes AppImageUpdate support for automatic updates
-- Make executable: `chmod +x cook-sync-*.AppImage`
+
+1. Download the AppImage:
+   ```bash
+   wget https://github.com/Cooklang/sync-agent/releases/latest/download/cook-sync-x86_64.AppImage
+   ```
+
+2. Make it executable:
+   ```bash
+   chmod +x cook-sync-*.AppImage
+   ```
+
+3. Double-click the AppImage or run:
+   ```bash
+   ./cook-sync-*.AppImage start
+   ```
+
+**Desktop Integration:**
+
+On first launch, Cook Sync will automatically:
+- Install desktop integration (menu entry and icons)
+- Add itself to your application menu
+- Set up the system tray icon
+
+You can then launch Cook Sync from your application menu like any other app.
+
+**Manual Desktop Integration:**
+
+If you prefer manual control:
+
+```bash
+# Install desktop integration
+./cook-sync-*.AppImage install
+
+# Uninstall desktop integration
+cook-sync uninstall
+```
+
+**Note:** If you move the AppImage file after installation, you'll need to uninstall and reinstall desktop integration from the new location.
 
 ### From Source
 
@@ -66,7 +102,31 @@ cargo build --release
 
 ### Linux Requirements
 
-For system tray support on Linux, ensure you have these packages installed:
+**System Tray Support:**
+
+The system tray icon requires specific packages depending on your desktop environment:
+
+**GNOME Users:**
+The system tray requires the AppIndicator extension:
+```bash
+sudo apt install gnome-shell-extension-appindicator
+gnome-extensions enable appindicator@ubuntu.com
+```
+Then restart GNOME Shell (Alt+F2, type 'r', press Enter).
+
+**XFCE Users:**
+Install the indicator plugin:
+```bash
+sudo apt install xfce4-indicator-plugin
+```
+Then add the Indicator Plugin to your panel.
+
+**KDE/MATE Users:**
+System tray works out of the box - no additional setup needed.
+
+**Development Dependencies:**
+
+If building from source, you'll need these packages:
 
 **Ubuntu/Debian:**
 ```bash
@@ -106,6 +166,12 @@ cook-sync update --check-only
 
 # Install updates
 cook-sync update
+
+# Install desktop integration (Linux AppImage only)
+cook-sync install
+
+# Uninstall desktop integration (Linux AppImage only)
+cook-sync uninstall
 
 # Stop the agent
 cook-sync stop
