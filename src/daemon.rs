@@ -136,6 +136,63 @@ impl Daemon {
         ) {
             Ok(tray) => {
                 info!("System tray created successfully");
+
+                // On GNOME/Cinnamon, check if AppIndicator support might be missing
+                #[cfg(target_os = "linux")]
+                {
+                    let desktop = std::env::var("XDG_CURRENT_DESKTOP")
+                        .unwrap_or_default()
+                        .to_lowercase();
+
+                    if desktop.contains("gnome") {
+                        // Check if the AppIndicator GNOME extension is enabled
+                        let extension_check = std::process::Command::new("gnome-extensions")
+                            .args(["info", "ubuntu-appindicators@ubuntu.com"])
+                            .output();
+
+                        let extension_missing = match extension_check {
+                            Ok(output) => {
+                                let stdout = String::from_utf8_lossy(&output.stdout);
+                                let stderr = String::from_utf8_lossy(&output.stderr);
+
+                                // Extension not found or not enabled
+                                !output.status.success()
+                                    || stderr.contains("not installed")
+                                    || stdout.contains("State: DISABLED")
+                            }
+                            Err(_) => {
+                                // gnome-extensions command not found or failed
+                                true
+                            }
+                        };
+
+                        if extension_missing {
+                            log::warn!("GNOME desktop detected without AppIndicator extension");
+                            log::warn!("The system tray icon may not be visible.");
+                            log::warn!("To fix this:");
+                            log::warn!("  1. Install: sudo apt-get install gnome-shell-extension-appindicator");
+                            log::warn!("  2. Enable: gnome-extensions enable ubuntu-appindicators@ubuntu.com");
+                            log::warn!("  3. Restart GNOME Shell (Alt+F2, type 'r', press Enter)");
+
+                            // Show a desktop notification to help the user
+                            let _ = crate::notifications::show_notification(
+                                "Cook Sync - System Tray Not Visible",
+                                "Your tray icon may not be visible on GNOME. Install gnome-shell-extension-appindicator to fix this. Check the logs for details."
+                            );
+                        }
+                    } else if desktop.contains("cinnamon") || desktop.contains("x-cinnamon") {
+                        // Cinnamon should support AppIndicator by default, but check for common issues
+                        log::info!("Cinnamon desktop detected");
+                        log::info!("If the tray icon is not visible, try:");
+                        log::info!("  1. Check if the system tray applet is enabled in Cinnamon settings");
+                        log::info!("  2. Right-click the panel > Applets > ensure 'System Tray' is enabled");
+                        log::info!("  3. Restart Cinnamon (Ctrl+Alt+Esc)");
+                    } else if !desktop.is_empty() {
+                        log::info!("Desktop environment: {}", desktop);
+                        log::info!("If the tray icon is not visible, check your desktop environment's system tray settings");
+                    }
+                }
+
                 tray
             }
             Err(e) => {

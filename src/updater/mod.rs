@@ -13,7 +13,7 @@ const PUBLIC_KEY: &str = env!("CARGO_PACKAGER_PUBLIC_KEY");
 // GitHub Releases manifest URL
 // The manifest.json file contains version information and download URLs for all platforms
 const MANIFEST_URL: &str =
-    "https://github.com/cooklang/sync-agent/releases/latest/download/manifest.json";
+    "https://github.com/cook-md/sync-agent/releases/latest/download/manifest.json";
 
 /// Check for updates and optionally install them
 ///
