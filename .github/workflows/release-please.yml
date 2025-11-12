@@ -210,17 +210,17 @@ jobs:
           echo "=== Looking for package files ==="
           FOUND=0
 
-          # Search entire target directory for package files
-          for file in $(find target -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null); do
+          # cargo-packager creates packages in project root, search for them
+          for file in $(find . -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) 2>/dev/null); do
             echo "Found: $file"
             cp -v "$file" release-assets/
             FOUND=1
           done
 
           if [ $FOUND -eq 0 ]; then
-            echo "❌ ERROR: No package files found"
-            echo "Full target directory listing:"
-            find target -type f 2>/dev/null | head -50 || true
+            echo "❌ ERROR: No package files found in project root"
+            echo "Files in current directory:"
+            ls -lah . | head -20 || true
             exit 1
           fi
 
