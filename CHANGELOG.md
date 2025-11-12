@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.31](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.30...cook-sync-v0.6.31) (2025-11-12)
+
+
+### Bug Fixes
+
+* app indicator ([f0f77d8](https://github.com/cook-md/sync-agent/commit/f0f77d8e81810405beb702415cc2624f7ec35c5e))
+* cargo-packager cache key for cross-architecture builds ([a4efe98](https://github.com/cook-md/sync-agent/commit/a4efe987b4fa845aa68daeb0e75d770e6a3a7342))
+
 ## [0.6.30](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.29...cook-sync-v0.6.30) (2025-11-12)
 
 
