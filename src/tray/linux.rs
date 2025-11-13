@@ -126,7 +126,6 @@ impl TrayState {
                                 error!("Failed to start sync: {}", e);
                             }
                         });
-
                     }
                 });
             }
