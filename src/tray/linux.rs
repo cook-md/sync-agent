@@ -77,7 +77,7 @@ impl TrayState {
         }
     }
 
-    fn handle_event(&self, event: TrayEvent, handle: &ksni::Handle<CookSyncTray>) {
+    fn handle_event(&self, event: TrayEvent) {
         match event {
             TrayEvent::Quit => {
                 info!("Quit requested from tray menu");
@@ -95,8 +95,7 @@ impl TrayState {
                     self.sync_manager.pause();
                     *self.sync_paused.lock().unwrap() = true;
                 }
-                // Update the menu
-                handle.update(|_tray: &mut CookSyncTray| {});
+                // Menu will auto-update on next click
             }
             TrayEvent::SetFolder => {
                 let config_clone = Arc::clone(&self.config);
@@ -123,22 +122,21 @@ impl TrayState {
 
                         *folder_path_clone.lock().unwrap() = Some(path.display().to_string());
 
-                        // Restart sync with new folder
+                        // Start sync with new folder
                         runtime_handle_clone.block_on(async {
-                            if let Err(e) = sync_manager_clone.restart().await {
-                                error!("Failed to restart sync: {}", e);
+                            if let Err(e) = sync_manager_clone.start().await {
+                                error!("Failed to start sync: {}", e);
                             }
                         });
 
-                        if let Err(e) = handle_clone.update(|_tray: &mut CookSyncTray| {}) {
-                            error!("Failed to update tray: {}", e);
-                        }
+                        // Menu will auto-update on next click
                     }
                 });
             }
             TrayEvent::OpenFolder => {
-                let config = self.config.settings();
-                if let Some(recipes_dir) = &config.recipes_dir {
+                let settings = self.config.settings();
+                let settings_lock = settings.lock().unwrap();
+                if let Some(recipes_dir) = &settings_lock.recipes_dir {
                     if let Err(e) = open::that(recipes_dir) {
                         error!("Failed to open recipes folder: {}", e);
                     }
@@ -164,7 +162,7 @@ impl TrayState {
                 std::thread::spawn(move || {
                     runtime_handle.block_on(async {
                         // Get auto_update setting
-                        let auto_update = config_clone.settings().auto_update;
+                        let auto_update = config_clone.settings().lock().unwrap().auto_update;
 
                         // Check for updates
                         match crate::updater::check_for_updates(auto_update).await {
@@ -205,15 +203,19 @@ impl TrayState {
                 });
             }
             TrayEvent::About => {
-                super::about::show_about_dialog();
+                let log_file_path = self.config.paths().log_file.clone();
+                super::about::show_about_dialog(&log_file_path);
             }
             TrayEvent::ToggleAutoStart => {
                 let platform = crate::platform::get_platform();
                 let current_state = *self.auto_start_enabled.lock().unwrap();
                 let new_state = !current_state;
 
+                let app_path = std::env::current_exe()
+                    .unwrap_or_else(|_| std::path::PathBuf::from("cook-sync"));
+
                 let result = if new_state {
-                    platform.enable_auto_start("cook-sync")
+                    platform.enable_auto_start("cook-sync", &app_path.to_string_lossy())
                 } else {
                     platform.disable_auto_start("cook-sync")
                 };
@@ -236,29 +238,51 @@ impl TrayState {
             TrayEvent::LoginLogout => {
                 let is_logged_in = *self.is_logged_in.lock().unwrap();
                 let auth_manager = Arc::clone(&self.auth_manager);
+                let sync_manager = Arc::clone(&self.sync_manager);
+                let config = Arc::clone(&self.config);
                 let runtime_handle = self.runtime_handle.clone();
                 let user_email_clone = Arc::clone(&self.user_email);
                 let is_logged_in_clone = Arc::clone(&self.is_logged_in);
-                let handle_clone = handle.clone();
 
                 std::thread::spawn(move || {
                     if is_logged_in {
-                        runtime_handle.block_on(async {
-                            if let Err(e) = auth_manager.logout().await {
-                                error!("Failed to logout: {}", e);
-                            } else {
-                                *user_email_clone.lock().unwrap() = None;
-                                *is_logged_in_clone.lock().unwrap() = false;
-                                info!("Logged out successfully");
-                            }
-                        });
+                        // Logout (not async)
+                        info!("Logout requested");
+                        if let Err(e) = auth_manager.logout() {
+                            error!("Failed to logout: {}", e);
+                        } else {
+                            *user_email_clone.lock().unwrap() = None;
+                            *is_logged_in_clone.lock().unwrap() = false;
+                            info!("Logged out successfully");
+
+                            // Stop sync manager
+                            runtime_handle.block_on(async {
+                                if let Err(e) = sync_manager.stop().await {
+                                    error!("Failed to stop sync manager: {}", e);
+                                }
+                            });
+                        }
                     } else {
+                        // Login (async)
+                        info!("Login requested");
                         runtime_handle.block_on(async {
-                            match auth_manager.login().await {
-                                Ok(session) => {
-                                    *user_email_clone.lock().unwrap() = Some(session.email.clone());
-                                    *is_logged_in_clone.lock().unwrap() = true;
-                                    info!("Logged in as: {}", session.email);
+                            match auth_manager.browser_login().await {
+                                Ok(()) => {
+                                    info!("Login completed successfully");
+
+                                    // Get session email
+                                    if let Some(session) = auth_manager.get_session() {
+                                        *user_email_clone.lock().unwrap() = Some(session.email.clone());
+                                        *is_logged_in_clone.lock().unwrap() = true;
+                                        info!("Logged in as: {}", session.email);
+
+                                        // Start sync manager if recipes folder is configured
+                                        if config.settings().lock().unwrap().recipes_dir.is_some() {
+                                            if let Err(e) = sync_manager.start().await {
+                                                error!("Failed to start sync manager: {}", e);
+                                            }
+                                        }
+                                    }
                                 }
                                 Err(e) => {
                                     error!("Login failed: {}", e);
@@ -267,9 +291,7 @@ impl TrayState {
                         });
                     }
 
-                    if let Err(e) = handle_clone.update(|_tray: &mut CookSyncTray| {}) {
-                        error!("Failed to update tray: {}", e);
-                    }
+                    // Menu will auto-update on next click
                 });
             }
         }
@@ -335,8 +357,7 @@ impl ksni::Tray for CookSyncTray {
                 }
                 .to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::ToggleSync, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::ToggleSync);
                 }),
                 ..Default::default()
             }
@@ -357,8 +378,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: if is_logged_in { "Logout" } else { "Login" }.to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::LoginLogout, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::LoginLogout);
                 }),
                 ..Default::default()
             }
@@ -375,8 +395,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "Set recipes folder...".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::SetFolder, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::SetFolder);
                 }),
                 ..Default::default()
             }
@@ -385,8 +404,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "Open recipes folder".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::OpenFolder, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::OpenFolder);
                 }),
                 ..Default::default()
             }
@@ -396,8 +414,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "Open cook.md".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::OpenWeb, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::OpenWeb);
                 }),
                 ..Default::default()
             }
@@ -407,8 +424,7 @@ impl ksni::Tray for CookSyncTray {
                 label: "Start on system startup".to_string(),
                 checked: auto_start,
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::ToggleAutoStart, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::ToggleAutoStart);
                 }),
                 ..Default::default()
             }
@@ -417,8 +433,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "Check for updates...".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::CheckUpdates, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::CheckUpdates);
                 }),
                 ..Default::default()
             }
@@ -427,8 +442,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "About Cook Sync".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::About, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::About);
                 }),
                 ..Default::default()
             }
@@ -438,8 +452,7 @@ impl ksni::Tray for CookSyncTray {
             ksni::menu::StandardItem {
                 label: "Quit".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state
-                        .handle_event(TrayEvent::Quit, &ksni::Handle::current());
+                    this.state.handle_event(TrayEvent::Quit);
                 }),
                 ..Default::default()
             }
@@ -451,8 +464,6 @@ impl ksni::Tray for CookSyncTray {
 // Public interface that matches the existing SystemTray API
 pub struct SystemTray {
     state: Arc<TrayState>,
-    handle: Option<ksni::Handle<CookSyncTray>>,
-    _theme_watcher: Option<ThemeWatcher>,
 }
 
 impl SystemTray {
@@ -476,31 +487,28 @@ impl SystemTray {
             auto_start_enabled,
         ));
 
-        Ok(SystemTray {
-            state,
-            handle: None,
-            _theme_watcher: None,
-        })
+        Ok(SystemTray { state })
     }
 
-    pub fn run(mut self) -> Result<()> {
+    pub fn run(self) -> Result<()> {
         info!("Starting ksni tray service");
 
         let tray = CookSyncTray::new(Arc::clone(&self.state));
 
         // Spawn the tray service (this is async but doesn't block)
         let service = ksni::TrayService::new(tray);
-        let handle = service.spawn();
-
-        self.handle = Some(handle.clone());
+        service.spawn();
 
         info!("ksni tray service started");
 
-        // Start status update loop
-        self.start_status_updater(handle.clone());
+        // Note: ksni automatically calls menu() when the user clicks the tray icon,
+        // so the menu will always show current state without manual updates
+
+        // Start background status updater
+        self.start_status_updater();
 
         // Start theme watcher
-        self.start_theme_watcher(handle);
+        self.start_theme_watcher();
 
         // Block forever (the tray runs in background via D-Bus)
         loop {
@@ -514,7 +522,7 @@ impl SystemTray {
         Ok(())
     }
 
-    fn start_status_updater(&self, handle: ksni::Handle<CookSyncTray>) {
+    fn start_status_updater(&self) {
         let sync_manager = Arc::clone(&self.state.sync_manager);
         let status_arc = Arc::clone(&self.state.status);
         let status_text_arc = Arc::clone(&self.state.status_text);
@@ -539,8 +547,6 @@ impl SystemTray {
                     };
 
                     *status_text_arc.lock().unwrap() = text.to_string();
-
-                    handle.update(|_tray: &mut CookSyncTray| {});
                 }
 
                 std::thread::sleep(std::time::Duration::from_secs(2));
@@ -548,7 +554,7 @@ impl SystemTray {
         });
     }
 
-    fn start_theme_watcher(&mut self, handle: ksni::Handle<CookSyncTray>) {
+    fn start_theme_watcher(&self) {
         let icon_name_arc = Arc::clone(&self.state.icon_name);
         let shutdown_signal = Arc::clone(&self.state.shutdown_signal);
 
@@ -568,8 +574,6 @@ impl SystemTray {
 
                     *icon_name_arc.lock().unwrap() = icon.to_string();
                     info!("Theme changed, updating icon to: {}", icon);
-
-                    handle.update(|_tray: &mut CookSyncTray| {});
                 }
 
                 std::thread::sleep(std::time::Duration::from_secs(5));
