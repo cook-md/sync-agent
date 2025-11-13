@@ -155,10 +155,8 @@ impl TrayState {
                 info!("Manual update check requested");
 
                 // Show immediate feedback
-                let _ = crate::notifications::show_notification(
-                    "Cook Sync",
-                    "Checking for updates...",
-                );
+                let _ =
+                    crate::notifications::show_notification("Cook Sync", "Checking for updates...");
 
                 let config_clone = Arc::clone(&self.config);
                 let runtime_handle = self.runtime_handle.clone();
