@@ -1,13 +1,13 @@
 // tray-icon implementation for macOS and Windows
 // Note: about and menu modules are declared in mod.rs
 
+use super::menu::TrayMenu;
 use crate::auth::AuthManager;
 use crate::config::Config;
 use crate::error::{Result, SyncError};
 use crate::platform::{ThemeChange, ThemeWatcher};
 use crate::sync::{SyncManager, SyncStatus};
 use log::{debug, error, info, trace};
-use super::menu::TrayMenu;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use tokio::runtime::Handle;

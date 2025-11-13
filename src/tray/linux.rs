@@ -181,7 +181,10 @@ impl TrayState {
                 match result {
                     Ok(_) => {
                         *self.auto_start_enabled.lock().unwrap() = new_state;
-                        info!("Auto-start {}", if new_state { "enabled" } else { "disabled" });
+                        info!(
+                            "Auto-start {}",
+                            if new_state { "enabled" } else { "disabled" }
+                        );
                     }
                     Err(e) => {
                         error!("Failed to toggle auto-start: {}", e);
@@ -262,11 +265,10 @@ impl ksni::Tray for CookSyncTray {
     // Use icon_pixmap for embedded icon if icon_name doesn't work
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
         // Try to load icon from file
-        load_icon_pixmap(&self.state.icon_name.lock().unwrap())
-            .unwrap_or_else(|e| {
-                warn!("Failed to load icon pixmap: {}", e);
-                vec![]
-            })
+        load_icon_pixmap(&self.state.icon_name.lock().unwrap()).unwrap_or_else(|e| {
+            warn!("Failed to load icon pixmap: {}", e);
+            vec![]
+        })
     }
 
     fn menu(&self) -> Vec<ksni::MenuItem<Self>> {
@@ -284,19 +286,24 @@ impl ksni::Tray for CookSyncTray {
                 label: format!("Status: {}", status_text),
                 enabled: false,
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Sync toggle
             ksni::menu::StandardItem {
-                label: if sync_paused { "Resume Sync" } else { "Pause Sync" }.to_string(),
+                label: if sync_paused {
+                    "Resume Sync"
+                } else {
+                    "Pause Sync"
+                }
+                .to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::ToggleSync, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::ToggleSync, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             ksni::menu::MenuItem::Separator,
-
             // User info (disabled, just for display)
             ksni::menu::StandardItem {
                 label: if is_logged_in {
@@ -306,93 +313,99 @@ impl ksni::Tray for CookSyncTray {
                 },
                 enabled: false,
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Login/Logout
             ksni::menu::StandardItem {
                 label: if is_logged_in { "Logout" } else { "Login" }.to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::LoginLogout, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::LoginLogout, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             ksni::menu::MenuItem::Separator,
-
             // Folder info (disabled, just for display)
             ksni::menu::StandardItem {
                 label: folder.unwrap_or_else(|| "Not configured".to_string()),
                 enabled: false,
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Set folder
             ksni::menu::StandardItem {
                 label: "Set recipes folder...".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::SetFolder, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::SetFolder, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Open folder
             ksni::menu::StandardItem {
                 label: "Open recipes folder".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::OpenFolder, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::OpenFolder, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             ksni::menu::MenuItem::Separator,
-
             // Open web
             ksni::menu::StandardItem {
                 label: "Open cook.md".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::OpenWeb, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::OpenWeb, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Auto-start checkbox
             ksni::menu::CheckmarkItem {
                 label: "Start on system startup".to_string(),
                 checked: auto_start,
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::ToggleAutoStart, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::ToggleAutoStart, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // Check for updates
             ksni::menu::StandardItem {
                 label: "Check for updates...".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::CheckUpdates, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::CheckUpdates, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             // About
             ksni::menu::StandardItem {
                 label: "About Cook Sync".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::About, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::About, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
-
+            }
+            .into(),
             ksni::menu::MenuItem::Separator,
-
             // Quit
             ksni::menu::StandardItem {
                 label: "Quit".to_string(),
                 activate: Box::new(move |this: &mut Self| {
-                    this.state.handle_event(TrayEvent::Quit, &ksni::Handle::current());
+                    this.state
+                        .handle_event(TrayEvent::Quit, &ksni::Handle::current());
                 }),
                 ..Default::default()
-            }.into(),
+            }
+            .into(),
         ]
     }
 }
