@@ -272,7 +272,8 @@ impl TrayState {
 
                                     // Get session email
                                     if let Some(session) = auth_manager.get_session() {
-                                        *user_email_clone.lock().unwrap() = Some(session.email.clone());
+                                        *user_email_clone.lock().unwrap() =
+                                            Some(session.email.clone());
                                         *is_logged_in_clone.lock().unwrap() = true;
                                         info!("Logged in as: {}", session.email);
 
