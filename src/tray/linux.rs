@@ -55,10 +55,9 @@ impl TrayState {
         runtime_handle: Handle,
         auto_start_enabled: bool,
     ) -> Self {
-        let icon_name = if dark_light::detect() == dark_light::Mode::Dark {
-            "cook-sync-light"
-        } else {
-            "cook-sync-dark"
+        let icon_name = match dark_light::detect() {
+            Ok(dark_light::Mode::Dark) => "cook-sync-light",
+            _ => "cook-sync-dark",
         };
 
         Self {
@@ -97,9 +96,7 @@ impl TrayState {
                     *self.sync_paused.lock().unwrap() = true;
                 }
                 // Update the menu
-                if let Err(e) = handle.update(|_tray: &mut CookSyncTray| {}) {
-                    error!("Failed to update tray: {}", e);
-                }
+                handle.update(|_tray: &mut CookSyncTray| {});
             }
             TrayEvent::SetFolder => {
                 let config_clone = Arc::clone(&self.config);
@@ -155,11 +152,56 @@ impl TrayState {
                 }
             }
             TrayEvent::CheckUpdates => {
+                info!("Manual update check requested");
+
+                // Show immediate feedback
+                let _ = crate::notifications::show_notification(
+                    "Cook Sync",
+                    "Checking for updates...",
+                );
+
+                let config_clone = Arc::clone(&self.config);
                 let runtime_handle = self.runtime_handle.clone();
+
                 std::thread::spawn(move || {
                     runtime_handle.block_on(async {
-                        if let Err(e) = crate::updates::check_and_install_update(true, true).await {
-                            error!("Update check failed: {}", e);
+                        // Get auto_update setting
+                        let auto_update = config_clone.settings().auto_update;
+
+                        // Check for updates
+                        match crate::updater::check_for_updates(auto_update).await {
+                            Ok(Some(version)) => {
+                                if auto_update {
+                                    let _ = crate::notifications::show_notification(
+                                        "Cook Sync Update",
+                                        &format!(
+                                            "Updated to version {}. Restart to apply.",
+                                            version
+                                        ),
+                                    );
+                                } else {
+                                    let _ = crate::notifications::show_notification(
+                                        "Cook Sync Update Available",
+                                        &format!(
+                                            "Version {} is available. Enable auto-update to install.",
+                                            version
+                                        ),
+                                    );
+                                }
+                            }
+                            Ok(None) => {
+                                let _ = crate::notifications::show_notification(
+                                    "Cook Sync",
+                                    "You're running the latest version.",
+                                );
+                            }
+                            Err(e) => {
+                                error!("Update check failed: {}", e);
+                                let _ = crate::notifications::show_notification(
+                                    "Cook Sync Update Check Failed",
+                                    &format!("Failed to check for updates: {}", e),
+                                );
+                            }
                         }
                     });
                 });
@@ -191,9 +233,7 @@ impl TrayState {
                     }
                 }
 
-                if let Err(e) = handle.update(|_tray: &mut CookSyncTray| {}) {
-                    error!("Failed to update tray: {}", e);
-                }
+                handle.update(|_tray: &mut CookSyncTray| {});
             }
             TrayEvent::LoginLogout => {
                 let is_logged_in = *self.is_logged_in.lock().unwrap();
@@ -502,9 +542,7 @@ impl SystemTray {
 
                     *status_text_arc.lock().unwrap() = text.to_string();
 
-                    if let Err(e) = handle.update(|_tray: &mut CookSyncTray| {}) {
-                        error!("Failed to update tray status: {}", e);
-                    }
+                    handle.update(|_tray: &mut CookSyncTray| {});
                 }
 
                 std::thread::sleep(std::time::Duration::from_secs(2));
@@ -517,26 +555,23 @@ impl SystemTray {
         let shutdown_signal = Arc::clone(&self.state.shutdown_signal);
 
         std::thread::spawn(move || {
-            let mut last_mode = dark_light::detect();
+            let mut last_mode = dark_light::detect().ok();
 
             while !shutdown_signal.load(Ordering::Relaxed) {
-                let current_mode = dark_light::detect();
+                let current_mode = dark_light::detect().ok();
 
                 if current_mode != last_mode {
                     last_mode = current_mode;
 
-                    let icon = if current_mode == dark_light::Mode::Dark {
-                        "cook-sync-light"
-                    } else {
-                        "cook-sync-dark"
+                    let icon = match current_mode {
+                        Some(dark_light::Mode::Dark) => "cook-sync-light",
+                        _ => "cook-sync-dark",
                     };
 
                     *icon_name_arc.lock().unwrap() = icon.to_string();
                     info!("Theme changed, updating icon to: {}", icon);
 
-                    if let Err(e) = handle.update(|_tray: &mut CookSyncTray| {}) {
-                        error!("Failed to update tray icon: {}", e);
-                    }
+                    handle.update(|_tray: &mut CookSyncTray| {});
                 }
 
                 std::thread::sleep(std::time::Duration::from_secs(5));
