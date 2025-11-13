@@ -4,7 +4,6 @@
 use crate::auth::AuthManager;
 use crate::config::Config;
 use crate::error::{Result, SyncError};
-use crate::platform::ThemeWatcher;
 use crate::sync::{SyncManager, SyncStatus};
 use ksni;
 use log::{debug, error, info, warn};
@@ -102,7 +101,6 @@ impl TrayState {
                 let sync_manager_clone = Arc::clone(&self.sync_manager);
                 let runtime_handle_clone = self.runtime_handle.clone();
                 let folder_path_clone = Arc::clone(&self.folder_path);
-                let handle_clone = handle.clone();
 
                 std::thread::spawn(move || {
                     let folder = rfd::FileDialog::new()
@@ -129,7 +127,6 @@ impl TrayState {
                             }
                         });
 
-                        // Menu will auto-update on next click
                     }
                 });
             }
@@ -232,8 +229,6 @@ impl TrayState {
                         error!("Failed to toggle auto-start: {}", e);
                     }
                 }
-
-                handle.update(|_tray: &mut CookSyncTray| {});
             }
             TrayEvent::LoginLogout => {
                 let is_logged_in = *self.is_logged_in.lock().unwrap();
@@ -272,10 +267,11 @@ impl TrayState {
 
                                     // Get session email
                                     if let Some(session) = auth_manager.get_session() {
-                                        *user_email_clone.lock().unwrap() =
-                                            Some(session.email.clone());
+                                        *user_email_clone.lock().unwrap() = session.email.clone();
                                         *is_logged_in_clone.lock().unwrap() = true;
-                                        info!("Logged in as: {}", session.email);
+                                        if let Some(ref email) = session.email {
+                                            info!("Logged in as: {}", email);
+                                        }
 
                                         // Start sync manager if recipes folder is configured
                                         if config.settings().lock().unwrap().recipes_dir.is_some() {
