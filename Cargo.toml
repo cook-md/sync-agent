@@ -33,9 +33,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 auto-launch = "0.5"
 
-# System tray
-tray-icon = "0.21"
-winit = "0.30"
+# System tray (platform-specific in platform dependencies below)
 image = "0.25"
 
 # Database
@@ -91,17 +89,23 @@ cocoa = "0.26"
 objc = "0.2"
 core-foundation = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
+# macOS uses tray-icon
+tray-icon = "0.21"
+winit = "0.30"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-gtk = "0.18"
-libappindicator = "0.9"
 keyring = { version = "3", features = ["linux-native-sync-persistent"] }
+# Linux uses ksni for system tray (no GTK event loop required)
+ksni = "0.2"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "shellapi", "winbase"] }
 windows-service = "0.8"
 winreg = "0.55"
 keyring = { version = "3", features = ["windows-native"] }
+# Windows uses tray-icon
+tray-icon = "0.21"
+winit = "0.30"
 
 [target.'cfg(windows)'.build-dependencies]
 embed-resource = "3"
