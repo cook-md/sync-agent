@@ -528,7 +528,7 @@ async fn check_update() -> Result<()> {
 fn install_integration() -> Result<()> {
     #[cfg(target_os = "linux")]
     {
-        use platform::{get_platform, PlatformIntegration};
+        use platform::get_platform;
         let platform = get_platform();
         platform.install_desktop_integration()?;
         Ok(())
@@ -545,7 +545,7 @@ fn install_integration() -> Result<()> {
 fn uninstall_integration() -> Result<()> {
     #[cfg(target_os = "linux")]
     {
-        use platform::{get_platform, PlatformIntegration};
+        use platform::get_platform;
         let platform = get_platform();
         platform.uninstall_desktop_integration()?;
         Ok(())
@@ -560,7 +560,7 @@ fn uninstall_integration() -> Result<()> {
 
 #[cfg(target_os = "linux")]
 fn check_and_auto_install() -> Result<()> {
-    use platform::{get_platform, PlatformIntegration};
+    use platform::get_platform;
 
     // Only auto-install if:
     // 1. Running from AppImage

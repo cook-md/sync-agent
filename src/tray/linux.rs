@@ -5,7 +5,6 @@ use crate::auth::AuthManager;
 use crate::config::Config;
 use crate::error::{Result, SyncError};
 use crate::sync::{SyncManager, SyncStatus};
-use ksni;
 use log::{debug, error, info, warn};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
