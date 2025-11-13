@@ -617,7 +617,9 @@ fn load_icon_for_theme(status: SyncStatus, is_dark_mode: bool) -> Result<Icon> {
         format!("{}/assets/{}", env!("CARGO_MANIFEST_DIR"), icon_name),
         // macOS installed path
         format!("/Applications/Cook Sync.app/Contents/Resources/{icon_name}"),
-        // Linux system installed paths
+        // Linux system installed paths (cargo-packager uses lib, but traditional installs use share)
+        format!("/usr/local/lib/cook-sync/{icon_name}"),
+        format!("/usr/lib/cook-sync/{icon_name}"),
         format!("/usr/local/share/cook-sync/{icon_name}"),
         format!("/usr/share/cook-sync/{icon_name}"),
     ];
@@ -625,10 +627,19 @@ fn load_icon_for_theme(status: SyncStatus, is_dark_mode: bool) -> Result<Icon> {
     // AppImage specific paths (check APPDIR environment variable)
     #[cfg(target_os = "linux")]
     if let Ok(appdir) = std::env::var("APPDIR") {
+        // cargo-packager puts resources in usr/lib not usr/share
+        icon_paths.insert(0, format!("{}/usr/lib/cook-sync/{}", appdir, icon_name));
         icon_paths.insert(0, format!("{}/usr/share/cook-sync/{}", appdir, icon_name));
         // Also try with different size tray icons
         for size in &[16, 22, 24, 32] {
             let base_name = icon_name.trim_end_matches(".png");
+            icon_paths.insert(
+                0,
+                format!(
+                    "{}/usr/lib/cook-sync/{}_tray_{}.png",
+                    appdir, base_name, size
+                ),
+            );
             icon_paths.insert(
                 0,
                 format!(
@@ -642,7 +653,14 @@ fn load_icon_for_theme(status: SyncStatus, is_dark_mode: bool) -> Result<Icon> {
     // Add paths relative to executable (for AppImage and other portable installs)
     if let Ok(exe_path) = std::env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            // AppImage: binary is in usr/bin, icons in usr/share/cook-sync
+            // AppImage: binary is in usr/bin, icons can be in usr/lib or usr/share
+            icon_paths.push(
+                exe_dir
+                    .join("../lib/cook-sync")
+                    .join(icon_name)
+                    .to_string_lossy()
+                    .to_string(),
+            );
             icon_paths.push(
                 exe_dir
                     .join("../share/cook-sync")
@@ -651,6 +669,13 @@ fn load_icon_for_theme(status: SyncStatus, is_dark_mode: bool) -> Result<Icon> {
                     .to_string(),
             );
             // User local installation
+            icon_paths.push(
+                exe_dir
+                    .parent()
+                    .map(|p| p.join("lib/cook-sync").join(icon_name))
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+            );
             icon_paths.push(
                 exe_dir
                     .parent()

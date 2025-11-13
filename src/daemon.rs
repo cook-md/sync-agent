@@ -184,7 +184,9 @@ impl Daemon {
                         // Cinnamon should support AppIndicator by default, but check for common issues
                         log::info!("Cinnamon desktop detected");
                         log::info!("If the tray icon is not visible, try:");
-                        log::info!("  1. Check if the system tray applet is enabled in Cinnamon settings");
+                        log::info!(
+                            "  1. Check if the system tray applet is enabled in Cinnamon settings"
+                        );
                         log::info!("  2. Right-click the panel > Applets > ensure 'System Tray' is enabled");
                         log::info!("  3. Restart Cinnamon (Ctrl+Alt+Esc)");
                     } else if !desktop.is_empty() {
