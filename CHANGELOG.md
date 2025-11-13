@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.37](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.36...cook-sync-v0.6.37) (2025-11-13)
+
+
+### Bug Fixes
+
+* clippy ([02fb8fa](https://github.com/cook-md/sync-agent/commit/02fb8faa802e88922de6ca5e87e06708d1bd4ace))
+* complete ksni Linux tray implementation ([d390d89](https://github.com/cook-md/sync-agent/commit/d390d898562180bb1ece49eb8dc89fc9672b6bdc))
+* format ([ce6b5c9](https://github.com/cook-md/sync-agent/commit/ce6b5c9914fcda8c462539efcb3154e7f815c789))
+* format ([d65e1b1](https://github.com/cook-md/sync-agent/commit/d65e1b17c29a34aab9a90b2aff7889ee2fa1abbc))
+* format ([50fe9fa](https://github.com/cook-md/sync-agent/commit/50fe9fa71be801653579d02b8ddf8a76ab3262f3))
+* format ([c81a742](https://github.com/cook-md/sync-agent/commit/c81a7429ee35918e9e20863f9b0af55cbd4d6506))
+* remove leftover handle references and fix session.email type ([cea84ed](https://github.com/cook-md/sync-agent/commit/cea84ed96f9d78b8aecd7953b9fdd1191695acdf))
+* remove unnecessary clone() calls on Copy type SyncStatus ([1510d63](https://github.com/cook-md/sync-agent/commit/1510d6328d8cdef221a6cc0cacf7765096d97162))
+* resolve Linux compilation errors in ksni tray implementation ([038766e](https://github.com/cook-md/sync-agent/commit/038766e19310ff29084b44216a206316e419de01))
+
 ## [0.6.36](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.35...cook-sync-v0.6.36) (2025-11-13)
 
 
