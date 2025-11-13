@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.35](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.34...cook-sync-v0.6.35) (2025-11-13)
+
+
+### Bug Fixes
+
+* add usr/lib/cook-sync to icon search paths for AppImage ([5dd1286](https://github.com/cook-md/sync-agent/commit/5dd128655e41630bf15fb68bc6c4622e18648406))
+
 ## [0.6.34](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.33...cook-sync-v0.6.34) (2025-11-12)
 
 
