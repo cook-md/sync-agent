@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.36](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.35...cook-sync-v0.6.36) (2025-11-13)
+
+
+### Bug Fixes
+
+* migrate Linux tray from tray-icon to ksni ([78f5773](https://github.com/cook-md/sync-agent/commit/78f577303462d5c1357d50badf8843e6df8e5032))
+
 ## [0.6.35](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.34...cook-sync-v0.6.35) (2025-11-13)
 
 
