@@ -527,11 +527,11 @@ impl SystemTray {
         std::thread::spawn(move || {
             while !shutdown_signal.load(Ordering::Relaxed) {
                 let state = sync_manager.state();
-                let status = state.lock().unwrap().status.clone();
+                let status = state.lock().unwrap().status;
                 let mut current_status = status_arc.lock().unwrap();
 
                 if *current_status != status {
-                    *current_status = status.clone();
+                    *current_status = status;
 
                     let text = match status {
                         SyncStatus::Starting => "Starting",
