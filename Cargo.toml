@@ -115,7 +115,3 @@ embed-resource = "3"
 [profile.dist]
 inherits = "release"
 lto = "thin"
-
-# Use local cooklang-sync for development
-[patch.crates-io]
-cooklang-sync-client = { path = "../cooklang-sync/client" }
