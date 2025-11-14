@@ -19,7 +19,7 @@ impl PlatformIntegration for WindowsIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(app_path)
-            .set_args(&["daemon"])
+            .set_args(&["start"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -35,6 +35,7 @@ impl PlatformIntegration for WindowsIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(app_path.to_str().unwrap())
+            .set_args(&["start"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -50,6 +51,7 @@ impl PlatformIntegration for WindowsIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(app_path.to_str().unwrap())
+            .set_args(&["start"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
