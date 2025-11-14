@@ -287,25 +287,53 @@ mod desktop_integration {
 
 impl PlatformIntegration for LinuxIntegration {
     fn enable_auto_start(&self, app_name: &str, app_path: &str) -> Result<()> {
+        // When running from AppImage, use the actual AppImage path instead of the
+        // temporary mount point. The APPIMAGE env var contains the real .AppImage file path.
+        let actual_path = if desktop_integration::is_running_from_appimage() {
+            if let Ok(appimage_path) = std::env::var("APPIMAGE") {
+                debug!("Using AppImage path for auto-start: {}", appimage_path);
+                appimage_path
+            } else {
+                debug!("Running from AppImage but APPIMAGE env var not set, using provided path");
+                app_path.to_string()
+            }
+        } else {
+            app_path.to_string()
+        };
+
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
-            .set_app_path(app_path)
-            .set_args(&["daemon"])
+            .set_app_path(&actual_path)
+            .set_args(&["start"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
         auto.enable()
             .map_err(|e| SyncError::Platform(format!("Failed to enable auto-start: {e}")))?;
 
-        info!("Auto-start enabled for {}", app_name);
+        info!(
+            "Auto-start enabled for {} with path: {}",
+            app_name, actual_path
+        );
         Ok(())
     }
 
     fn disable_auto_start(&self, app_name: &str) -> Result<()> {
-        let app_path = std::env::current_exe()?;
+        // Use AppImage path if running from AppImage
+        let actual_path = if desktop_integration::is_running_from_appimage() {
+            std::env::var("APPIMAGE").unwrap_or_else(|_| {
+                std::env::current_exe()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+            })
+        } else {
+            std::env::current_exe()?.to_string_lossy().to_string()
+        };
+
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
-            .set_app_path(app_path.to_str().unwrap())
+            .set_app_path(&actual_path)
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -317,10 +345,21 @@ impl PlatformIntegration for LinuxIntegration {
     }
 
     fn is_auto_start_enabled(&self, app_name: &str) -> Result<bool> {
-        let app_path = std::env::current_exe()?;
+        // Use AppImage path if running from AppImage
+        let actual_path = if desktop_integration::is_running_from_appimage() {
+            std::env::var("APPIMAGE").unwrap_or_else(|_| {
+                std::env::current_exe()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+            })
+        } else {
+            std::env::current_exe()?.to_string_lossy().to_string()
+        };
+
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
-            .set_app_path(app_path.to_str().unwrap())
+            .set_app_path(&actual_path)
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 

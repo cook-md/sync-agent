@@ -26,11 +26,11 @@ read_signature() {
     cat "$sig_file"
 }
 
-# Find signature files
-DARWIN_X64_SIG=$(read_signature "*-x64.dmg.sig")
-DARWIN_ARM64_SIG=$(read_signature "*-arm64.dmg.sig" || read_signature "*-aarch64.dmg.sig")
-LINUX_X64_SIG=$(read_signature "*-x86_64.AppImage.sig")
-WINDOWS_X64_NSIS_SIG=$(read_signature "*Setup*.exe.sig" || read_signature "*-x64.exe.sig")
+# Find signature files (cargo-packager uses underscores in filenames)
+DARWIN_X64_SIG=$(read_signature "*_x64.dmg.sig")
+DARWIN_ARM64_SIG=$(read_signature "*_arm64.dmg.sig" || read_signature "*_aarch64.dmg.sig")
+LINUX_X64_SIG=$(read_signature "*_x86_64.AppImage.sig")
+WINDOWS_X64_NSIS_SIG=$(read_signature "*_x64-setup.exe.sig")
 WINDOWS_X64_MSI_SIG=$(read_signature "*.msi.sig")
 
 # Generate manifest.json
@@ -51,7 +51,7 @@ if [ "$DARWIN_X64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_X64_SIG" ]; then
     cat >> manifest.json <<EOF_ENTRY
     "darwin-x86_64": {
       "signature": "${DARWIN_X64_SIG}",
-      "url": "${BASE_URL}/Cook-Sync-${VERSION}-x64.dmg",
+      "url": "${BASE_URL}/Cook.Sync_${VERSION}_x64.dmg",
       "format": "app"
     }
 EOF_ENTRY
@@ -64,7 +64,7 @@ if [ "$DARWIN_ARM64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_ARM64_SIG" ]; the
     cat >> manifest.json <<EOF_ENTRY
     "darwin-aarch64": {
       "signature": "${DARWIN_ARM64_SIG}",
-      "url": "${BASE_URL}/Cook-Sync-${VERSION}-aarch64.dmg",
+      "url": "${BASE_URL}/Cook.Sync_${VERSION}_aarch64.dmg",
       "format": "app"
     }
 EOF_ENTRY
@@ -77,7 +77,7 @@ if [ "$LINUX_X64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$LINUX_X64_SIG" ]; then
     cat >> manifest.json <<EOF_ENTRY
     "linux-x86_64": {
       "signature": "${LINUX_X64_SIG}",
-      "url": "${BASE_URL}/cook-sync-${VERSION}-x86_64.AppImage",
+      "url": "${BASE_URL}/cook-sync_${VERSION}_x86_64.AppImage",
       "format": "appimage"
     }
 EOF_ENTRY
@@ -90,7 +90,7 @@ if [ "$WINDOWS_X64_NSIS_SIG" != "SIG_NOT_FOUND" ] && [ -n "$WINDOWS_X64_NSIS_SIG
     cat >> manifest.json <<EOF_ENTRY
     "windows-x86_64": {
       "signature": "${WINDOWS_X64_NSIS_SIG}",
-      "url": "${BASE_URL}/Cook-Sync-Setup-${VERSION}-x64.exe",
+      "url": "${BASE_URL}/cook-sync_${VERSION}_x64-setup.exe",
       "format": "nsis"
     }
 EOF_ENTRY

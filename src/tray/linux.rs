@@ -579,47 +579,61 @@ impl SystemTray {
 
 // Helper function to load icon as pixmap
 fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
-    // Try to find the icon file
-    let icon_file = if icon_name.contains("light") {
-        "icon_white.png"
+    // Use dedicated tray icons (monochrome)
+    // For dark mode, use white icons; for light mode, use black icons
+    let icon_sizes = if icon_name.contains("light") {
+        // Dark mode: use white tray icons
+        vec![
+            "icon_whitetray_32.png",
+            "icon_whitetray_24.png",
+            "icon_whitetray_48.png",
+        ]
     } else {
-        "icon_black.png"
+        // Light mode: use black tray icons
+        vec![
+            "icon_blacktray_32.png",
+            "icon_blacktray_24.png",
+            "icon_blacktray_48.png",
+        ]
     };
 
-    // Search for icon in standard locations
-    let possible_paths = vec![
-        format!("{}/assets/{}", env!("CARGO_MANIFEST_DIR"), icon_file),
-        format!("/usr/share/cook-sync/{}", icon_file),
-        format!("/usr/local/share/cook-sync/{}", icon_file),
-    ];
+    // Try each icon size in order of preference
+    for icon_file in &icon_sizes {
+        // Search for icon in standard locations
+        let possible_paths = vec![
+            format!("{}/assets/{}", env!("CARGO_MANIFEST_DIR"), icon_file),
+            format!("/usr/share/cook-sync/{}", icon_file),
+            format!("/usr/local/share/cook-sync/{}", icon_file),
+        ];
 
-    // Add AppImage paths if running from AppImage
-    let mut all_paths = possible_paths;
-    if let Ok(appdir) = std::env::var("APPDIR") {
-        all_paths.insert(0, format!("{}/usr/lib/cook-sync/{}", appdir, icon_file));
-        all_paths.insert(0, format!("{}/usr/share/cook-sync/{}", appdir, icon_file));
-    }
+        // Add AppImage paths if running from AppImage
+        let mut all_paths = possible_paths;
+        if let Ok(appdir) = std::env::var("APPDIR") {
+            all_paths.insert(0, format!("{}/usr/lib/cook-sync/{}", appdir, icon_file));
+            all_paths.insert(0, format!("{}/usr/share/cook-sync/{}", appdir, icon_file));
+        }
 
-    for path in &all_paths {
-        if let Ok(icon_data) = std::fs::read(path) {
-            debug!("Loaded icon from: {}", path);
+        for path in &all_paths {
+            if let Ok(icon_data) = std::fs::read(path) {
+                debug!("Loaded tray icon from: {}", path);
 
-            // Load PNG and convert to RGBA
-            if let Ok(img) = image::load_from_memory(&icon_data) {
-                let rgba = img.to_rgba8();
-                let (width, height) = rgba.dimensions();
+                // Load PNG and convert to RGBA
+                if let Ok(img) = image::load_from_memory(&icon_data) {
+                    let rgba = img.to_rgba8();
+                    let (width, height) = rgba.dimensions();
 
-                return Ok(vec![ksni::Icon {
-                    width: width as i32,
-                    height: height as i32,
-                    data: rgba.into_raw(),
-                }]);
+                    return Ok(vec![ksni::Icon {
+                        width: width as i32,
+                        height: height as i32,
+                        data: rgba.into_raw(),
+                    }]);
+                }
             }
         }
     }
 
     Err(SyncError::Tray(format!(
-        "Failed to load icon '{}' from any path",
+        "Failed to load tray icon for '{}' from any path",
         icon_name
     )))
 }
