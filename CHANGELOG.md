@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.38](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.37...cook-sync-v0.6.38) (2025-11-14)
+
+
+### Bug Fixes
+
+* autostart ([df82715](https://github.com/cook-md/sync-agent/commit/df827151b34931bac9cd2daf317f51b017835cb3))
+* icons ([0f18181](https://github.com/cook-md/sync-agent/commit/0f18181b93cf37c1aba05fcb25732c04851dfe06))
+
 ## [0.6.37](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.36...cook-sync-v0.6.37) (2025-11-13)
 
 
