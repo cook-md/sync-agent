@@ -1,21 +1,49 @@
 use super::status::{SyncState, SyncStatus};
+use super::status_listener::SyncManagerListener;
 use crate::auth::AuthManager;
 use crate::config::Config;
 use crate::error::{Result, SyncError};
-use cooklang_sync_client::extract_uid_from_jwt;
-use log::{debug, error, info};
+use cooklang_sync_client::{extract_uid_from_jwt, SyncContext};
+use log::{debug, error, info, warn};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use tokio::sync::watch;
+use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Duration};
+use tokio_util::sync::CancellationToken;
 
 pub struct SyncManager {
     auth: Arc<AuthManager>,
     config: Arc<Config>,
     state: Arc<Mutex<SyncState>>,
-    shutdown_tx: Arc<Mutex<Option<watch::Sender<bool>>>>,
+    sync_context: Arc<RwLock<Option<Arc<SyncContext>>>>,
     sync_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    retry_policy: RetryPolicy,
+}
+
+#[derive(Clone)]
+struct RetryPolicy {
+    max_retries: usize,
+    base_delay: Duration,
+    max_delay: Duration,
+}
+
+impl Default for RetryPolicy {
+    fn default() -> Self {
+        Self {
+            max_retries: 5,
+            base_delay: Duration::from_secs(5),
+            max_delay: Duration::from_secs(300),
+        }
+    }
+}
+
+impl RetryPolicy {
+    fn calculate_delay(&self, attempt: usize) -> Duration {
+        let delay_secs = self.base_delay.as_secs() * 2_u64.pow(attempt as u32);
+        let delay = Duration::from_secs(delay_secs);
+        std::cmp::min(delay, self.max_delay)
+    }
 }
 
 impl SyncManager {
@@ -24,8 +52,9 @@ impl SyncManager {
             auth,
             config,
             state: Arc::new(Mutex::new(SyncState::default())),
-            shutdown_tx: Arc::new(Mutex::new(None)),
+            sync_context: Arc::new(RwLock::new(None)),
             sync_task: Arc::new(Mutex::new(None)),
+            retry_policy: RetryPolicy::default(),
         }
     }
 
@@ -47,9 +76,13 @@ impl SyncManager {
             ));
         }
 
-        // Create shutdown channel
-        let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
-        *self.shutdown_tx.lock().unwrap() = Some(shutdown_tx);
+        // Create sync context with listener
+        let sync_context = SyncContext::new();
+        let listener = Arc::new(SyncManagerListener::new(Arc::clone(&self.state)));
+        sync_context.set_listener(listener);
+
+        // Store context
+        *self.sync_context.write().await = Some(Arc::clone(&sync_context));
 
         // Start sync loop
         let state = Arc::clone(&self.state);
@@ -57,12 +90,22 @@ impl SyncManager {
         let config = Arc::clone(&self.config);
         let recipes_dir = recipes_dir.unwrap();
         let sync_task_clone = Arc::clone(&self.sync_task);
+        let retry_policy = self.retry_policy.clone();
+
+        // Get cancellation token from context
+        let token = sync_context.token();
 
         let handle = tokio::spawn(async move {
             let interval_secs = config.settings().lock().unwrap().sync_interval_secs;
             let mut interval = interval(Duration::from_secs(interval_secs));
 
             loop {
+                // Check cancellation before each iteration
+                if token.is_cancelled() {
+                    info!("Sync loop cancelled");
+                    break;
+                }
+
                 tokio::select! {
                     _ = interval.tick() => {
                         // Check if we should sync
@@ -75,28 +118,41 @@ impl SyncManager {
                             continue;
                         }
 
-                        // Perform sync with cancellation support
-                        state.lock().unwrap().set_syncing();
+                        // Retry loop for sync attempts
+                        let mut retry_attempt = 0;
+                        loop {
+                            // Check cancellation before retry
+                            if token.is_cancelled() {
+                                info!("Sync cancelled during retry");
+                                break;
+                            }
 
-                        // Create a cancellable sync task
-                        let sync_future = perform_sync(&auth, &config, &recipes_dir);
+                            // Perform sync with cancellation support
+                            let sync_result = perform_sync_with_context(
+                                &auth,
+                                &config,
+                                &recipes_dir,
+                                token.child_token(),
+                            ).await;
 
-                        // Run sync with timeout/cancellation
-                        tokio::select! {
-                            result = sync_future => {
-                                match result {
-                                    Ok(stats) => {
-                                        let mut st = state.lock().unwrap();
-                                        st.set_idle();
-                                        st.items_synced = stats.synced;
-                                        st.items_pending = stats.pending;
-                                        debug!("Sync completed: {} synced, {} pending", stats.synced, stats.pending);
-                                    }
-                                    Err(e) => {
-                                        error!("Sync failed: {e}");
+                            match sync_result {
+                                Ok(()) => {
+                                    debug!("Sync completed successfully");
+                                    // Success - break retry loop
+                                    break;
+                                }
+                                Err(e) => {
+                                    error!("Sync failed: {e}");
+
+                                    // Check if error is retriable
+                                    let is_retriable = matches!(e,
+                                        SyncError::Network(_) | SyncError::Other(_)
+                                    );
+
+                                    if !is_retriable {
+                                        // Non-retriable error - update state and break
                                         let mut st = state.lock().unwrap();
                                         match e {
-                                            SyncError::Network(_) => st.set_offline(),
                                             SyncError::AuthenticationRequired => {
                                                 st.set_error("Authentication required".to_string());
                                                 // Clear session
@@ -104,25 +160,42 @@ impl SyncManager {
                                             }
                                             _ => st.set_error(e.to_string()),
                                         }
+                                        break;
+                                    }
+
+                                    // Check if we should retry
+                                    if retry_attempt >= retry_policy.max_retries {
+                                        error!("Sync failed after {} retries: {}", retry_attempt, e);
+                                        state.lock().unwrap().set_error(format!("Sync failed after {} retries", retry_attempt));
+                                        break;
+                                    }
+
+                                    // Calculate backoff delay
+                                    let delay = retry_policy.calculate_delay(retry_attempt);
+                                    warn!("Sync failed (attempt {}/{}), retrying in {:?}: {}",
+                                          retry_attempt + 1, retry_policy.max_retries, delay, e);
+
+                                    retry_attempt += 1;
+
+                                    // Wait with cancellation check
+                                    tokio::select! {
+                                        _ = tokio::time::sleep(delay) => {},
+                                        _ = token.cancelled() => {
+                                            info!("Retry cancelled during backoff");
+                                            break;
+                                        }
                                     }
                                 }
                             }
-                            _ = shutdown_rx.changed() => {
-                                if *shutdown_rx.borrow() {
-                                    info!("Sync cancelled due to shutdown");
-                                    break;
-                                }
-                            }
                         }
                     }
-                    _ = shutdown_rx.changed() => {
-                        if *shutdown_rx.borrow() {
-                            info!("Sync manager shutting down");
-                            break;
-                        }
+                    _ = token.cancelled() => {
+                        info!("Sync manager shutting down");
+                        break;
                     }
                 }
             }
+
             // Clear the task handle when done
             *sync_task_clone.lock().unwrap() = None;
         });
@@ -146,20 +219,30 @@ impl SyncManager {
     pub async fn stop(&self) -> Result<()> {
         info!("Stopping sync manager");
 
-        // Send shutdown signal
-        if let Some(tx) = self.shutdown_tx.lock().unwrap().as_ref() {
-            let _ = tx.send(true);
+        // Cancel via context
+        if let Some(ctx) = self.sync_context.read().await.as_ref() {
+            ctx.cancel();
+            debug!("Cancellation signal sent");
         }
 
-        // Abort the sync task if it's running
+        // Wait for sync task with timeout
         let handle = self.sync_task.lock().unwrap().take();
         if let Some(handle) = handle {
-            info!("Aborting sync task");
-            handle.abort();
-            // Wait for it to finish (will return immediately if aborted)
-            let _ = handle.await;
-            info!("Sync task aborted");
+            info!("Waiting for sync task to complete");
+
+            // Give it 30 seconds to finish gracefully
+            let timeout = Duration::from_secs(30);
+            match tokio::time::timeout(timeout, handle).await {
+                Ok(Ok(())) => info!("Sync task completed gracefully"),
+                Ok(Err(e)) => warn!("Sync task panicked: {:?}", e),
+                Err(_) => {
+                    warn!("Sync task did not complete within {:?}", timeout);
+                }
+            }
         }
+
+        // Clear context
+        *self.sync_context.write().await = None;
 
         self.state.lock().unwrap().status = SyncStatus::Idle;
         info!("Sync manager stopped");
@@ -175,16 +258,12 @@ impl SyncManager {
     }
 }
 
-struct SyncStats {
-    synced: usize,
-    pending: usize,
-}
-
-async fn perform_sync(
+async fn perform_sync_with_context(
     auth: &AuthManager,
     config: &Config,
     recipes_dir: &Path,
-) -> Result<SyncStats> {
+    token: CancellationToken,
+) -> Result<()> {
     // Get current session
     let session = auth
         .get_session()
@@ -204,8 +283,10 @@ async fn perform_sync(
     let recipes_dir_str = recipes_dir.to_string_lossy().to_string();
     let db_path_str = db_path.to_string_lossy().to_string();
 
-    // Run sync once (we handle the loop ourselves for better control)
+    // Run sync with the new API
     cooklang_sync_client::run_async(
+        token,
+        None, // listener is already set on the context
         &recipes_dir_str,
         &db_path_str,
         &sync_endpoint,
@@ -224,8 +305,38 @@ async fn perform_sync(
 
     info!("Sync completed successfully");
 
-    Ok(SyncStats {
-        synced: 0,
-        pending: 0,
-    })
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_retry_policy_delay_calculation() {
+        let policy = RetryPolicy::default();
+
+        // Test exponential backoff
+        assert_eq!(policy.calculate_delay(0), Duration::from_secs(5));
+        assert_eq!(policy.calculate_delay(1), Duration::from_secs(10));
+        assert_eq!(policy.calculate_delay(2), Duration::from_secs(20));
+        assert_eq!(policy.calculate_delay(3), Duration::from_secs(40));
+
+        // Test max delay cap
+        assert!(policy.calculate_delay(10) <= policy.max_delay);
+    }
+
+    #[tokio::test]
+    async fn test_cancellation_token_hierarchy() {
+        let context = SyncContext::new();
+        let parent_token = context.token();
+        let child_token = parent_token.child_token();
+
+        // Cancel parent
+        context.cancel();
+
+        // Both should be cancelled
+        assert!(parent_token.is_cancelled());
+        assert!(child_token.is_cancelled());
+    }
 }

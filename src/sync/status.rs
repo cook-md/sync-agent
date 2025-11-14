@@ -29,7 +29,9 @@ pub struct SyncState {
     pub status: SyncStatus,
     pub last_sync: Option<chrono::DateTime<chrono::Utc>>,
     pub error_message: Option<String>,
+    #[allow(dead_code)]
     pub items_synced: usize,
+    #[allow(dead_code)]
     pub items_pending: usize,
 }
 
@@ -62,6 +64,7 @@ impl SyncState {
         self.error_message = Some(message);
     }
 
+    #[allow(dead_code)]
     pub fn set_offline(&mut self) {
         self.status = SyncStatus::Offline;
         self.error_message = Some("No internet connection".to_string());

@@ -27,8 +27,9 @@ local-prod = []  # For testing production endpoints locally
 
 [dependencies]
 # Core functionality
-cooklang-sync-client = "0.2.6"
+cooklang-sync-client = { version = "0.3.0" }
 tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 auto-launch = "0.5"
@@ -37,7 +38,7 @@ auto-launch = "0.5"
 image = "0.25"
 
 # Database
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 
 # Networking
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
@@ -114,3 +115,7 @@ embed-resource = "3"
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+# Use local cooklang-sync for development
+[patch.crates-io]
+cooklang-sync-client = { path = "../cooklang-sync/client" }

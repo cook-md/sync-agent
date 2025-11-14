@@ -13,7 +13,11 @@ use keyring_store::MockKeyring;
 #[path = "secure_session_test.rs"]
 mod secure_session_test;
 
+#[cfg(debug_assertions)]
+const SERVICE_NAME: &str = "cook.md-sync-agent-debug";
+#[cfg(not(debug_assertions))]
 const SERVICE_NAME: &str = "cook.md-sync-agent";
+
 const JWT_KEY: &str = "jwt_token";
 const USER_ID_KEY: &str = "user_id";
 const EMAIL_KEY: &str = "user_email";

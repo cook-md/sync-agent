@@ -1,5 +1,6 @@
 pub mod manager;
 pub mod status;
+pub mod status_listener;
 
 #[cfg(test)]
 mod manager_test;
