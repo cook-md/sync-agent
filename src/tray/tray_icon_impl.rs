@@ -213,10 +213,10 @@ impl SystemTray {
                                         if let Err(e) = sync_manager_clone.start().await {
                                             error!("Failed to start sync manager: {e}");
                                         }
-                                    });
 
-                                    // Trigger status update to refresh the menu
-                                    event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
+                                        // Trigger status update after sync manager starts
+                                        event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
+                                    });
 
                                     info!("Recipes folder set successfully");
                                 }
@@ -254,12 +254,21 @@ impl SystemTray {
                             match crate::updater::check_for_updates(auto_update).await {
                                 Ok(Some(version)) => {
                                     if auto_update {
+                                        #[cfg(target_os = "macos")]
+                                        let message = format!(
+                                            "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
+                                            version
+                                        );
+
+                                        #[cfg(not(target_os = "macos"))]
+                                        let message = format!(
+                                            "Update to version {} has been downloaded and will be installed on next restart.",
+                                            version
+                                        );
+
                                         let _ = crate::notifications::show_notification(
                                             "Cook Sync Update",
-                                            &format!(
-                                                "Update to version {} has been downloaded and will be installed on next restart.",
-                                                version
-                                            ),
+                                            &message,
                                         );
                                     } else {
                                         let _ = crate::notifications::show_notification(
@@ -406,11 +415,15 @@ impl SystemTray {
 
                             // Stop sync manager
                             let sync_manager_clone = Arc::clone(&sync_manager);
+                            let event_proxy_clone = event_loop_proxy.clone();
                             // Use the Tokio runtime handle to spawn the async task
                             runtime_handle.clone().spawn(async move {
                                 if let Err(e) = sync_manager_clone.stop().await {
                                     error!("Failed to stop sync manager: {e}");
                                 }
+
+                                // Trigger immediate status update after logout completes
+                                event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
                             });
                         } else {
                             // Login
@@ -418,6 +431,7 @@ impl SystemTray {
                             let auth_manager_clone = Arc::clone(&auth_manager);
                             let sync_manager_clone = Arc::clone(&sync_manager);
                             let config_clone = Arc::clone(&config);
+                            let event_proxy_clone = event_loop_proxy.clone();
                             // Use the Tokio runtime handle to spawn the async task
                             runtime_handle.clone().spawn(async move {
                                 match auth_manager_clone.browser_login().await {
@@ -438,6 +452,9 @@ impl SystemTray {
                                                 );
                                             }
                                         }
+
+                                        // Trigger immediate status update after login completes
+                                        event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
                                     }
                                     Err(e) => error!("Failed to login: {e}"),
                                 }

@@ -198,4 +198,24 @@ mod tests {
         assert_eq!(cloned.items_synced, state.items_synced);
         assert_eq!(cloned.items_pending, state.items_pending);
     }
+
+    #[test]
+    fn test_clear_error() {
+        let mut state = SyncState::default();
+
+        // Set an error state
+        state.set_error("Sync failed after 5 retries".to_string());
+        assert_eq!(state.status, SyncStatus::Error);
+        assert_eq!(state.error_message, Some("Sync failed after 5 retries".to_string()));
+
+        // Clear the error
+        state.clear_error();
+        assert_eq!(state.status, SyncStatus::Idle);
+        assert_eq!(state.error_message, None);
+
+        // Clearing error when not in error state should not change anything
+        state.set_syncing();
+        state.clear_error();
+        assert_eq!(state.status, SyncStatus::Syncing);
+    }
 }

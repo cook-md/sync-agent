@@ -73,12 +73,22 @@ impl Daemon {
                             "Update to version {} downloaded, will install on restart",
                             version
                         );
+
+                        #[cfg(target_os = "macos")]
+                        let message = format!(
+                            "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
+                            version
+                        );
+
+                        #[cfg(not(target_os = "macos"))]
+                        let message = format!(
+                            "Update to version {} has been downloaded and will be installed on next restart.",
+                            version
+                        );
+
                         let _ = crate::notifications::show_notification(
                             "Cook Sync Update",
-                            &format!(
-                                "Update to version {} has been downloaded and will be installed on next restart.",
-                                version
-                            ),
+                            &message,
                         );
                     }
                     Ok(None) => {
