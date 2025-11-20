@@ -206,7 +206,10 @@ mod tests {
         // Set an error state
         state.set_error("Sync failed after 5 retries".to_string());
         assert_eq!(state.status, SyncStatus::Error);
-        assert_eq!(state.error_message, Some("Sync failed after 5 retries".to_string()));
+        assert_eq!(
+            state.error_message,
+            Some("Sync failed after 5 retries".to_string())
+        );
 
         // Clear the error
         state.clear_error();

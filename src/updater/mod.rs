@@ -61,10 +61,8 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
 
                             // Write to a temporary file
                             let temp_dir = std::env::temp_dir();
-                            let dmg_path = temp_dir.join(format!(
-                                "cook-sync-{}.dmg",
-                                update.version
-                            ));
+                            let dmg_path =
+                                temp_dir.join(format!("cook-sync-{}.dmg", update.version));
 
                             if let Err(e) = std::fs::write(&dmg_path, bytes) {
                                 error!("Failed to write DMG file: {}", e);

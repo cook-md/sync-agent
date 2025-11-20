@@ -86,10 +86,8 @@ impl Daemon {
                             version
                         );
 
-                        let _ = crate::notifications::show_notification(
-                            "Cook Sync Update",
-                            &message,
-                        );
+                        let _ =
+                            crate::notifications::show_notification("Cook Sync Update", &message);
                     }
                     Ok(None) => {
                         info!("No updates available");
