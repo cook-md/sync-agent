@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.40](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.39...cook-sync-v0.6.40) (2025-11-20)
+
+
+### Bug Fixes
+
+* fmt ([bb67290](https://github.com/cook-md/sync-agent/commit/bb672906d2e76655dcda6c5ca363f00eeb5228af))
+* status update immedeate ([856ab77](https://github.com/cook-md/sync-agent/commit/856ab779c04c91ed0d005ba7c4ee9d80643ab83e))
+* status update immedeate ([be46bfe](https://github.com/cook-md/sync-agent/commit/be46bfe692e971b1e47b6c3bc1b0000d17327465))
+
 ## [0.6.39](https://github.com/cook-md/sync-agent/compare/cook-sync-v0.6.38...cook-sync-v0.6.39) (2025-11-14)
 
 
