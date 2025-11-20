@@ -64,6 +64,13 @@ impl SyncState {
         self.error_message = Some(message);
     }
 
+    pub fn clear_error(&mut self) {
+        if self.status == SyncStatus::Error {
+            self.status = SyncStatus::Idle;
+            self.error_message = None;
+        }
+    }
+
     #[allow(dead_code)]
     pub fn set_offline(&mut self) {
         self.status = SyncStatus::Offline;

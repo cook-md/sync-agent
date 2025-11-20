@@ -304,7 +304,7 @@ impl PlatformIntegration for LinuxIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(&actual_path)
-            .set_args(&["start"])
+            .set_args(&["daemon"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -334,7 +334,7 @@ impl PlatformIntegration for LinuxIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(&actual_path)
-            .set_args(&["start"])
+            .set_args(&["daemon"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -361,7 +361,7 @@ impl PlatformIntegration for LinuxIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(&actual_path)
-            .set_args(&["start"])
+            .set_args(&["daemon"])
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 

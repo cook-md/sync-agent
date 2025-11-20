@@ -98,6 +98,8 @@ impl SyncManager {
         let handle = tokio::spawn(async move {
             let interval_secs = config.settings().lock().unwrap().sync_interval_secs;
             let mut interval = interval(Duration::from_secs(interval_secs));
+            let mut last_success = std::time::Instant::now();
+            let mut consecutive_failures = 0;
 
             loop {
                 // Check cancellation before each iteration
@@ -116,6 +118,16 @@ impl SyncManager {
 
                         if !should_sync {
                             continue;
+                        }
+
+                        // Reset consecutive failures if enough time has passed since last success
+                        // This handles the case where system woke from sleep or network recovered
+                        let time_since_success = std::time::Instant::now().duration_since(last_success);
+                        if time_since_success > retry_policy.max_delay * 2 && consecutive_failures > 0 {
+                            info!("Resetting retry counter after extended idle period ({:?} since last success)", time_since_success);
+                            consecutive_failures = 0;
+                            // Clear error state to allow retry
+                            state.lock().unwrap().clear_error();
                         }
 
                         // Retry loop for sync attempts
@@ -138,7 +150,9 @@ impl SyncManager {
                             match sync_result {
                                 Ok(()) => {
                                     debug!("Sync completed successfully");
-                                    // Success - break retry loop
+                                    // Success - reset counters and update last success time
+                                    last_success = std::time::Instant::now();
+                                    consecutive_failures = 0;
                                     break;
                                 }
                                 Err(e) => {
@@ -160,6 +174,7 @@ impl SyncManager {
                                             }
                                             _ => st.set_error(e.to_string()),
                                         }
+                                        consecutive_failures += 1;
                                         break;
                                     }
 
@@ -167,6 +182,7 @@ impl SyncManager {
                                     if retry_attempt >= retry_policy.max_retries {
                                         error!("Sync failed after {} retries: {}", retry_attempt, e);
                                         state.lock().unwrap().set_error(format!("Sync failed after {} retries", retry_attempt));
+                                        consecutive_failures += 1;
                                         break;
                                     }
 
@@ -211,8 +227,10 @@ impl SyncManager {
     }
 
     pub fn resume(&self) {
-        if self.state.lock().unwrap().status == SyncStatus::Paused {
-            self.state.lock().unwrap().status = SyncStatus::Idle;
+        let mut state = self.state.lock().unwrap();
+        if state.status == SyncStatus::Paused || state.status == SyncStatus::Error {
+            state.status = SyncStatus::Idle;
+            state.error_message = None;
         }
     }
 

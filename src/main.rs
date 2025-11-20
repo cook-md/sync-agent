@@ -504,6 +504,13 @@ async fn check_update() -> Result<()> {
     match updater::check_for_updates(auto_update).await {
         Ok(Some(version)) => {
             if auto_update {
+                #[cfg(target_os = "macos")]
+                println!(
+                    "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
+                    version
+                );
+
+                #[cfg(not(target_os = "macos"))]
                 println!(
                     "Update to version {} downloaded and will be installed on next restart",
                     version

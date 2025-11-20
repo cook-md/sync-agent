@@ -51,15 +51,61 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
             if auto_install {
                 info!("Auto-install enabled, downloading and installing update...");
 
-                match update.download_and_install() {
-                    Ok(()) => {
-                        info!("Update downloaded and installed successfully");
-                        // Note: The updater will restart the application automatically
-                        Ok(Some(update.version.to_string()))
+                // On macOS, DMG files cannot be automatically installed.
+                // We download and open the DMG, then the user completes installation manually.
+                #[cfg(target_os = "macos")]
+                {
+                    match update.download() {
+                        Ok(bytes) => {
+                            info!("Update downloaded ({} bytes)", bytes.len());
+
+                            // Write to a temporary file
+                            let temp_dir = std::env::temp_dir();
+                            let dmg_path =
+                                temp_dir.join(format!("cook-sync-{}.dmg", update.version));
+
+                            if let Err(e) = std::fs::write(&dmg_path, bytes) {
+                                error!("Failed to write DMG file: {}", e);
+                                return Err(SyncError::Update(format!(
+                                    "Failed to save update file: {}",
+                                    e
+                                )));
+                            }
+
+                            info!("Update saved to: {:?}", dmg_path);
+
+                            // Open the DMG file with the default macOS handler
+                            if let Err(e) = open::that(&dmg_path) {
+                                error!("Failed to open DMG: {}", e);
+                                return Err(SyncError::Update(format!(
+                                    "Downloaded update but failed to open DMG: {}",
+                                    e
+                                )));
+                            }
+
+                            info!("DMG opened successfully - user will complete installation");
+                            Ok(Some(update.version.to_string()))
+                        }
+                        Err(e) => {
+                            error!("Failed to download update: {}", e);
+                            Err(SyncError::Update(format!("Download failed: {}", e)))
+                        }
                     }
-                    Err(e) => {
-                        error!("Failed to download/install update: {}", e);
-                        Err(SyncError::Update(format!("Update failed: {}", e)))
+                }
+
+                // On Linux and Windows, use automatic installation
+                #[cfg(not(target_os = "macos"))]
+                {
+                    match update.download_and_install() {
+                        Ok(()) => {
+                            info!("Update downloaded and installed successfully");
+                            // Note: The updater will restart the application automatically
+                            Ok(Some(update.version.to_string()))
+                        }
+                        Err(e) => {
+                            error!("Failed to download/install update: {}", e);
+                            Err(SyncError::Update(format!("Update failed: {}", e)))
+                        }
                     }
                 }
             } else {
