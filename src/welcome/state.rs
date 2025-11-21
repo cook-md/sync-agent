@@ -44,7 +44,7 @@ impl Default for WelcomeState {
             is_logging_in: false,
             recipes_dir: None,
             directory_error: None,
-            preferences_expanded: false,
+            preferences_expanded: true, // Default to expanded
             auto_start: true,  // Default to enabled
             auto_update: true, // Default to enabled
             should_close: false,
@@ -265,10 +265,10 @@ mod tests {
     fn test_preferences_toggle() {
         let mut state = WelcomeState::default();
 
+        assert!(state.preferences_expanded); // Now defaults to expanded
+        state.toggle_preferences();
         assert!(!state.preferences_expanded);
         state.toggle_preferences();
         assert!(state.preferences_expanded);
-        state.toggle_preferences();
-        assert!(!state.preferences_expanded);
     }
 }

@@ -263,13 +263,14 @@ impl SyncManager {
         if let Some(handle) = handle {
             info!("Waiting for sync task to complete");
 
-            // Give it 30 seconds to finish gracefully
-            let timeout = Duration::from_secs(30);
+            // Give it 1 second to finish gracefully - if called from quit handler,
+            // the process will force exit after 500ms anyway
+            let timeout = Duration::from_millis(1000);
             match tokio::time::timeout(timeout, handle).await {
                 Ok(Ok(())) => info!("Sync task completed gracefully"),
                 Ok(Err(e)) => warn!("Sync task panicked: {:?}", e),
                 Err(_) => {
-                    warn!("Sync task did not complete within {:?}", timeout);
+                    warn!("Sync task did not complete within {:?}, cancellation signal sent", timeout);
                 }
             }
         }

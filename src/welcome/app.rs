@@ -76,11 +76,8 @@ impl eframe::App for WelcomeApp {
                 .show(ui, |ui| {
                     // Center content vertically
                     ui.vertical_centered(|ui| {
-                        // Add flexible space at top for vertical centering
-                        let available_height = ui.available_height();
-                        let content_height = 600.0; // Approximate content height
-                        let top_padding = (available_height - content_height).max(0.0) / 2.0;
-                        ui.add_space(top_padding);
+                        // Minimal top spacing (no vertical centering)
+                        ui.add_space(style::spacing::MEDIUM);
 
                         // Brand header
                         render_brand_header(ui, &self.palette, self.theme, &self.logo_texture);
@@ -129,9 +126,9 @@ impl eframe::App for WelcomeApp {
 pub fn show_welcome_screen() -> Result<WelcomeResult> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([640.0, 960.0]) // Increased to 960px (200px more)
+            .with_inner_size([640.0, 810.0]) // Increased from 760px to 810px
             .with_resizable(false)
-            .with_decorations(false) // Remove OS window title bar
+            .with_decorations(true) // Show OS window title bar with native controls
             .with_transparent(false)
             .with_title("Welcome to Cook Sync"),
         ..Default::default()

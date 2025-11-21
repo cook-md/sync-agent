@@ -154,10 +154,19 @@ impl SystemTray {
             if let winit::event::Event::UserEvent(tray_event) = event {
                 match tray_event {
                     TrayEvent::Quit => {
-                        info!("Quit requested, shutting down gracefully");
+                        info!("Quit requested, shutting down immediately");
 
                         // Signal shutdown to all background threads
                         state.shutdown_signal.store(true, Ordering::Relaxed);
+
+                        // Stop sync immediately - don't wait for graceful completion
+                        // This is critical when user has selected wrong folder and sync is indexing
+                        let sync_manager = sync_manager.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = sync_manager.stop().await {
+                                log::warn!("Error stopping sync manager during quit: {}", e);
+                            }
+                        });
 
                         // Clean shutdown of theme watcher if running
                         if let Some(watcher) = state.theme_watcher.lock().unwrap().take() {
@@ -166,6 +175,13 @@ impl SystemTray {
                             // We don't join here to avoid blocking the UI thread
                             drop(watcher);
                         }
+
+                        // Give a brief moment for sync cancellation to propagate, then force exit
+                        std::thread::spawn(|| {
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                            info!("Force exiting process after quit");
+                            std::process::exit(0);
+                        });
 
                         event_loop.exit();
                     }
