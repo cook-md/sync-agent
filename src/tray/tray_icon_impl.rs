@@ -133,6 +133,9 @@ impl SystemTray {
         // Start theme watcher if available
         self.start_theme_watcher(event_loop_proxy.clone());
 
+        // Trigger immediate status update so user sees their login/folder status right away
+        event_loop_proxy.send_event(TrayEvent::UpdateStatus).ok();
+
         // Start status update timer
         self.start_status_updater(event_loop_proxy.clone());
 
@@ -175,6 +178,9 @@ impl SystemTray {
                             sync_manager.pause();
                         }
                         menu.update_sync_toggle(!is_paused);
+
+                        // Trigger immediate status update to refresh menu
+                        event_loop_proxy.send_event(TrayEvent::UpdateStatus).ok();
                     }
                     TrayEvent::SetFolder => {
                         // Use native file dialog to select folder
@@ -319,6 +325,19 @@ impl SystemTray {
 
                         if let Err(e) = result {
                             error!("Failed to update auto-start: {e}");
+                            // Show error notification to user
+                            let _ = crate::notifications::show_notification(
+                                "Cook Sync Auto-start",
+                                &format!(
+                                    "Failed to {} auto-start: {}",
+                                    if enabled { "enable" } else { "disable" },
+                                    e
+                                ),
+                            );
+                            // Revert checkbox state since it failed
+                            menu.auto_start.set_checked(!enabled);
+                            // Revert config as well
+                            let _ = config.update_settings(|s| s.auto_start = !enabled);
                         } else {
                             info!(
                                 "Auto-start {}",

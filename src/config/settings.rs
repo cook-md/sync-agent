@@ -11,6 +11,8 @@ pub struct Settings {
     pub auto_update: bool,
     pub show_notifications: bool,
     #[serde(default)]
+    pub welcome_shown: bool,
+    #[serde(default)]
     pub update_settings: UpdateSettings,
 }
 
@@ -43,6 +45,7 @@ impl Default for Settings {
             auto_start: true,
             auto_update: true,
             show_notifications: true,
+            welcome_shown: false,
             update_settings: UpdateSettings::default(),
         }
     }
@@ -125,3 +128,7 @@ impl Settings {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "settings_test.rs"]
+mod settings_test;

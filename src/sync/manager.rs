@@ -101,6 +101,9 @@ impl SyncManager {
             let mut last_success = std::time::Instant::now();
             let mut consecutive_failures = 0;
 
+            // Run first sync immediately instead of waiting for the interval
+            let mut first_sync = true;
+
             loop {
                 // Check cancellation before each iteration
                 if token.is_cancelled() {
@@ -108,106 +111,118 @@ impl SyncManager {
                     break;
                 }
 
-                tokio::select! {
-                    _ = interval.tick() => {
-                        // Check if we should sync
-                        let should_sync = {
-                            let st = state.lock().unwrap();
-                            st.status != SyncStatus::Paused && auth.is_authenticated()
-                        };
-
-                        if !should_sync {
-                            continue;
+                // For first sync, skip the interval tick and run immediately
+                if !first_sync {
+                    tokio::select! {
+                        _ = interval.tick() => {},
+                        _ = token.cancelled() => {
+                            info!("Sync manager shutting down");
+                            break;
                         }
+                    }
+                }
+                first_sync = false;
 
-                        // Reset consecutive failures if enough time has passed since last success
-                        // This handles the case where system woke from sleep or network recovered
-                        let time_since_success = std::time::Instant::now().duration_since(last_success);
-                        if time_since_success > retry_policy.max_delay * 2 && consecutive_failures > 0 {
-                            info!("Resetting retry counter after extended idle period ({:?} since last success)", time_since_success);
+                // Check if we should sync
+                let should_sync = {
+                    let st = state.lock().unwrap();
+                    st.status != SyncStatus::Paused && auth.is_authenticated()
+                };
+
+                if !should_sync {
+                    continue;
+                }
+
+                // Reset consecutive failures if enough time has passed since last success
+                // This handles the case where system woke from sleep or network recovered
+                let time_since_success = std::time::Instant::now().duration_since(last_success);
+                if time_since_success > retry_policy.max_delay * 2 && consecutive_failures > 0 {
+                    info!("Resetting retry counter after extended idle period ({:?} since last success)", time_since_success);
+                    consecutive_failures = 0;
+                    // Clear error state to allow retry
+                    state.lock().unwrap().clear_error();
+                }
+
+                // Retry loop for sync attempts
+                let mut retry_attempt = 0;
+                loop {
+                    // Check cancellation before retry
+                    if token.is_cancelled() {
+                        info!("Sync cancelled during retry");
+                        break;
+                    }
+
+                    // Perform sync with cancellation support
+                    let sync_result = perform_sync_with_context(
+                        &auth,
+                        &config,
+                        &recipes_dir,
+                        token.child_token(),
+                    )
+                    .await;
+
+                    match sync_result {
+                        Ok(()) => {
+                            debug!("Sync completed successfully");
+                            // Success - reset counters and update last success time
+                            last_success = std::time::Instant::now();
                             consecutive_failures = 0;
-                            // Clear error state to allow retry
-                            state.lock().unwrap().clear_error();
+                            break;
                         }
+                        Err(e) => {
+                            error!("Sync failed: {e}");
 
-                        // Retry loop for sync attempts
-                        let mut retry_attempt = 0;
-                        loop {
-                            // Check cancellation before retry
-                            if token.is_cancelled() {
-                                info!("Sync cancelled during retry");
+                            // Check if error is retriable
+                            let is_retriable =
+                                matches!(e, SyncError::Network(_) | SyncError::Other(_));
+
+                            if !is_retriable {
+                                // Non-retriable error - update state and break
+                                let mut st = state.lock().unwrap();
+                                match e {
+                                    SyncError::AuthenticationRequired => {
+                                        st.set_error("Authentication required".to_string());
+                                        // Clear session
+                                        let _ = auth.logout();
+                                    }
+                                    _ => st.set_error(e.to_string()),
+                                }
+                                consecutive_failures += 1;
                                 break;
                             }
 
-                            // Perform sync with cancellation support
-                            let sync_result = perform_sync_with_context(
-                                &auth,
-                                &config,
-                                &recipes_dir,
-                                token.child_token(),
-                            ).await;
+                            // Check if we should retry
+                            if retry_attempt >= retry_policy.max_retries {
+                                error!("Sync failed after {} retries: {}", retry_attempt, e);
+                                state.lock().unwrap().set_error(format!(
+                                    "Sync failed after {} retries",
+                                    retry_attempt
+                                ));
+                                consecutive_failures += 1;
+                                break;
+                            }
 
-                            match sync_result {
-                                Ok(()) => {
-                                    debug!("Sync completed successfully");
-                                    // Success - reset counters and update last success time
-                                    last_success = std::time::Instant::now();
-                                    consecutive_failures = 0;
+                            // Calculate backoff delay
+                            let delay = retry_policy.calculate_delay(retry_attempt);
+                            warn!(
+                                "Sync failed (attempt {}/{}), retrying in {:?}: {}",
+                                retry_attempt + 1,
+                                retry_policy.max_retries,
+                                delay,
+                                e
+                            );
+
+                            retry_attempt += 1;
+
+                            // Wait with cancellation check
+                            tokio::select! {
+                                _ = tokio::time::sleep(delay) => {},
+                                _ = token.cancelled() => {
+                                    info!("Retry cancelled during backoff");
                                     break;
-                                }
-                                Err(e) => {
-                                    error!("Sync failed: {e}");
-
-                                    // Check if error is retriable
-                                    let is_retriable = matches!(e,
-                                        SyncError::Network(_) | SyncError::Other(_)
-                                    );
-
-                                    if !is_retriable {
-                                        // Non-retriable error - update state and break
-                                        let mut st = state.lock().unwrap();
-                                        match e {
-                                            SyncError::AuthenticationRequired => {
-                                                st.set_error("Authentication required".to_string());
-                                                // Clear session
-                                                let _ = auth.logout();
-                                            }
-                                            _ => st.set_error(e.to_string()),
-                                        }
-                                        consecutive_failures += 1;
-                                        break;
-                                    }
-
-                                    // Check if we should retry
-                                    if retry_attempt >= retry_policy.max_retries {
-                                        error!("Sync failed after {} retries: {}", retry_attempt, e);
-                                        state.lock().unwrap().set_error(format!("Sync failed after {} retries", retry_attempt));
-                                        consecutive_failures += 1;
-                                        break;
-                                    }
-
-                                    // Calculate backoff delay
-                                    let delay = retry_policy.calculate_delay(retry_attempt);
-                                    warn!("Sync failed (attempt {}/{}), retrying in {:?}: {}",
-                                          retry_attempt + 1, retry_policy.max_retries, delay, e);
-
-                                    retry_attempt += 1;
-
-                                    // Wait with cancellation check
-                                    tokio::select! {
-                                        _ = tokio::time::sleep(delay) => {},
-                                        _ = token.cancelled() => {
-                                            info!("Retry cancelled during backoff");
-                                            break;
-                                        }
-                                    }
                                 }
                             }
                         }
-                    }
-                    _ = token.cancelled() => {
-                        info!("Sync manager shutting down");
-                        break;
                     }
                 }
             }

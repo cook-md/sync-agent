@@ -2,7 +2,8 @@
   "release-type": "rust",
   "packages": {
     ".": {
-      "package-name": "cook-sync"
+      "package-name": "cook-sync",
+      "include-component-in-tag": false
     }
   }
 }

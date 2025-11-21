@@ -12,6 +12,7 @@ mod sentry_integration;
 mod sync;
 mod tray;
 mod updater;
+mod welcome;
 
 use clap::{Parser, Subcommand};
 use error::Result;
@@ -75,6 +76,13 @@ enum Commands {
 
     /// Uninstall desktop integration (Linux AppImage only)
     Uninstall,
+
+    /// Reset all configuration and data (stops daemon if running)
+    Reset {
+        /// Skip confirmation prompt
+        #[arg(long, short)]
+        yes: bool,
+    },
 }
 
 #[tokio::main]
@@ -111,6 +119,7 @@ async fn main() -> Result<()> {
         Some(Commands::Update) => check_update().await,
         Some(Commands::Install) => install_integration(),
         Some(Commands::Uninstall) => uninstall_integration(),
+        Some(Commands::Reset { yes }) => reset_all_data(yes).await,
         None => {
             // If no command specified, start the daemon
             start_daemon().await
@@ -124,6 +133,51 @@ async fn start_daemon() -> Result<()> {
     if daemon::is_already_running(&config) {
         println!("Cook Sync is already running");
         return Ok(());
+    }
+
+    // Check if this is first run and show welcome screen BEFORE spawning daemon
+    // This avoids event loop conflicts between egui and system tray
+    let is_first_run = {
+        let settings_guard = config.settings();
+        let settings = settings_guard.lock().unwrap();
+        !settings.welcome_shown
+    };
+
+    if is_first_run {
+        info!("First run detected, showing welcome screen");
+
+        // Show welcome screen (blocks until closed)
+        let welcome_result = welcome::show_welcome_screen()?;
+
+        // Mark welcome as shown and save any user selections
+        config.update_settings(|s| {
+            s.welcome_shown = true;
+
+            // If user selected a directory, save it
+            if let Some(dir) = welcome_result.recipes_dir {
+                s.recipes_dir = Some(dir);
+            }
+        })?;
+
+        // If user clicked login, perform login BEFORE starting daemon
+        // This ensures the daemon starts with authentication already complete
+        if welcome_result.login_requested {
+            info!("User requested login from welcome screen");
+            println!("Opening browser for login...");
+            println!("Please complete login in your browser...");
+
+            // Perform login synchronously before starting daemon
+            match login().await {
+                Ok(()) => {
+                    println!("✓ Login successful!");
+                }
+                Err(e) => {
+                    error!("Login failed: {}", e);
+                    println!("⚠ Login failed: {}", e);
+                    println!("You can login later from the system tray menu.");
+                }
+            }
+        }
     }
 
     println!("Starting Cook Sync...");
@@ -240,18 +294,23 @@ async fn start_daemon() -> Result<()> {
 }
 
 async fn run_daemon() -> Result<()> {
+    let config = config::Config::new()?;
+
     // On Linux and macOS, we avoid traditional fork-based daemonization
     // because system tray apps need to maintain access to the display server
     // (X11/Wayland on Linux, WindowServer on macOS)
     #[cfg(unix)]
     {
-        let config = config::Config::new()?;
         let pid_file = config.paths().pid_file.clone();
 
         // Write PID file
         std::fs::write(&pid_file, std::process::id().to_string())?;
         info!("Cook Sync daemon started (PID: {})", std::process::id());
     }
+
+    // Check if login was requested during first run (handled in parent process)
+    // For now, we'll check if user is not authenticated and prompt login from tray
+    // TODO: Consider adding a mechanism to trigger login automatically if requested
 
     // Now run the actual daemon
     let daemon = daemon::Daemon::new().await?;
@@ -630,4 +689,130 @@ fn is_running_from_appimage() -> bool {
     }
 
     false
+}
+
+async fn reset_all_data(skip_confirmation: bool) -> Result<()> {
+    use std::io::{self, Write};
+
+    println!("⚠️  WARNING: This will delete ALL Cook Sync data!");
+    println!();
+    println!("This includes:");
+    println!("  • Settings (welcome_shown, recipes directory, auto-start, etc.)");
+    println!("  • Authentication session (you'll need to login again)");
+    println!("  • Sync database");
+    println!("  • Cached data");
+    println!("  • Log files");
+    println!();
+
+    if !skip_confirmation {
+        print!("Are you sure you want to continue? [y/N]: ");
+        io::stdout().flush()?;
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_lowercase();
+
+        if input != "y" && input != "yes" {
+            println!("Reset cancelled.");
+            return Ok(());
+        }
+    }
+
+    println!();
+    println!("🗑️  Resetting all data...");
+
+    // Stop daemon if running
+    let config = config::Config::new()?;
+    if daemon::is_already_running(&config) {
+        println!("  ⏹️  Stopping daemon...");
+        stop_daemon()?;
+        // Give it time to shut down cleanly
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    }
+
+    let paths = config.paths();
+    let mut errors = Vec::new();
+
+    // Clear session from keyring
+    println!("  🔑 Clearing authentication session...");
+    if let Err(e) = auth::secure_session::SecureSession::delete() {
+        errors.push(format!("Failed to clear keyring session: {}", e));
+    }
+
+    // Delete settings file
+    println!("  ⚙️  Deleting settings...");
+    if paths.settings_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.settings_file) {
+            errors.push(format!("Failed to delete settings: {}", e));
+        }
+    }
+
+    // Delete session file (fallback storage)
+    if paths.session_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.session_file) {
+            errors.push(format!("Failed to delete session file: {}", e));
+        }
+    }
+
+    // Delete profile file
+    if paths.profile_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.profile_file) {
+            errors.push(format!("Failed to delete profile: {}", e));
+        }
+    }
+
+    // Delete database
+    println!("  💾 Deleting sync database...");
+    if paths.database_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.database_file) {
+            errors.push(format!("Failed to delete database: {}", e));
+        }
+    }
+
+    // Delete updates file
+    if paths.updates_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.updates_file) {
+            errors.push(format!("Failed to delete updates file: {}", e));
+        }
+    }
+
+    // Delete log file
+    println!("  📝 Deleting logs...");
+    if paths.log_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.log_file) {
+            errors.push(format!("Failed to delete log file: {}", e));
+        }
+    }
+
+    // Delete PID file
+    if paths.pid_file.exists() {
+        if let Err(e) = std::fs::remove_file(&paths.pid_file) {
+            errors.push(format!("Failed to delete PID file: {}", e));
+        }
+    }
+
+    // Try to remove directories if empty
+    let _ = std::fs::remove_dir(&paths.config_dir);
+    let _ = std::fs::remove_dir(&paths.data_dir);
+
+    println!();
+
+    if errors.is_empty() {
+        println!("✅ All data has been reset successfully!");
+        println!();
+        println!("You can now:");
+        println!("  • Start fresh with: cook-sync start");
+        println!("  • The welcome screen will appear on next start");
+    } else {
+        println!("⚠️  Reset completed with some errors:");
+        for error in &errors {
+            println!("  • {}", error);
+        }
+        println!();
+        println!("Most data has been cleared. You may need to manually delete:");
+        println!("  • Config: {}", paths.config_dir.display());
+        println!("  • Data: {}", paths.data_dir.display());
+    }
+
+    Ok(())
 }
