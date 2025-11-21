@@ -128,6 +128,10 @@ cook-sync install
 
 # Uninstall desktop integration
 cook-sync uninstall
+
+# Reset all configuration and data (stops daemon if running)
+cook-sync reset              # Interactive - prompts for confirmation
+cook-sync reset --yes        # Non-interactive - skips confirmation
 ```
 
 ## Architecture Overview

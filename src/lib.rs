@@ -17,5 +17,6 @@ pub mod sentry_integration;
 pub mod sync;
 pub mod tray;
 pub mod updater;
+pub mod welcome;
 
 pub use error::{Result, SyncError};
