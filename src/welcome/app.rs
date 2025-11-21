@@ -28,6 +28,12 @@ pub struct WelcomeApp {
     result_ref: Arc<Mutex<WelcomeResult>>,
 }
 
+impl Default for WelcomeApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WelcomeApp {
     #[allow(dead_code)]
     pub fn new() -> Self {

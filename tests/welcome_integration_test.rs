@@ -23,8 +23,8 @@ fn test_first_run_detection() {
 
     let settings = Settings::default();
 
-    assert_eq!(
-        settings.welcome_shown, false,
+    assert!(
+        !settings.welcome_shown,
         "First run should have welcome_shown = false"
     );
 }
@@ -34,11 +34,13 @@ fn test_second_run_detection() {
     // Test that we can detect subsequent runs (welcome_shown = true)
     use cook_sync::config::Settings;
 
-    let mut settings = Settings::default();
-    settings.welcome_shown = true;
+    let settings = Settings {
+        welcome_shown: true,
+        ..Default::default()
+    };
 
-    assert_eq!(
-        settings.welcome_shown, true,
+    assert!(
+        settings.welcome_shown,
         "Subsequent runs should have welcome_shown = true"
     );
 }
@@ -53,7 +55,7 @@ fn test_welcome_shown_persists_across_save_load() {
 
     // Create settings with welcome_shown = false
     let settings = Settings::default();
-    assert_eq!(settings.welcome_shown, false);
+    assert!(!settings.welcome_shown);
 
     // Save settings
     settings
@@ -63,8 +65,8 @@ fn test_welcome_shown_persists_across_save_load() {
     // Load settings back
     let loaded = Settings::load(&settings_path).expect("Failed to load settings");
 
-    assert_eq!(
-        loaded.welcome_shown, false,
+    assert!(
+        !loaded.welcome_shown,
         "welcome_shown should persist as false"
     );
 
@@ -78,8 +80,8 @@ fn test_welcome_shown_persists_across_save_load() {
     // Load again
     let loaded_again = Settings::load(&settings_path).expect("Failed to load settings again");
 
-    assert_eq!(
-        loaded_again.welcome_shown, true,
+    assert!(
+        loaded_again.welcome_shown,
         "welcome_shown should persist as true"
     );
 }
@@ -88,8 +90,7 @@ fn test_welcome_shown_persists_across_save_load() {
 fn test_config_update_settings_can_modify_welcome_shown() {
     // Test that Config::update_settings can modify welcome_shown field
     // This tests the integration with the update mechanism
-    use cook_sync::config::{Config, Settings};
-    use std::fs;
+    use cook_sync::config::Settings;
 
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
@@ -110,7 +111,7 @@ fn test_config_update_settings_can_modify_welcome_shown() {
     // For now, test the update pattern directly
     let mut settings = Settings::load(&settings_path).expect("Failed to load settings");
 
-    assert_eq!(settings.welcome_shown, false, "Should start as false");
+    assert!(!settings.welcome_shown, "Should start as false");
 
     // Update welcome_shown
     settings.welcome_shown = true;
@@ -121,7 +122,7 @@ fn test_config_update_settings_can_modify_welcome_shown() {
     // Verify it persisted
     let loaded = Settings::load(&settings_path).expect("Failed to load updated settings");
 
-    assert_eq!(loaded.welcome_shown, true, "Should be updated to true");
+    assert!(loaded.welcome_shown, "Should be updated to true");
 
     // Cleanup
     std::env::remove_var("COOK_SYNC_CONFIG_DIR");
@@ -157,15 +158,15 @@ fn test_backward_compatibility_with_old_settings() {
     let settings = Settings::load(&settings_path).expect("Failed to load old settings");
 
     // Should default to false for backward compatibility
-    assert_eq!(
-        settings.welcome_shown, false,
+    assert!(
+        !settings.welcome_shown,
         "Old settings should default welcome_shown to false"
     );
 
     // All other fields should be preserved
     assert!(settings.recipes_dir.is_none());
     assert_eq!(settings.sync_interval_secs, 12);
-    assert_eq!(settings.auto_start, true);
+    assert!(settings.auto_start);
 }
 
 #[test]
@@ -209,8 +210,8 @@ fn test_first_run_workflow() {
     let settings = Settings::load(&settings_path).expect("Failed to load settings");
 
     // Step 2: Check if first run
-    assert_eq!(
-        settings.welcome_shown, false,
+    assert!(
+        !settings.welcome_shown,
         "First run should have welcome_shown = false"
     );
 
@@ -229,8 +230,8 @@ fn test_first_run_workflow() {
     let second_run_settings =
         Settings::load(&settings_path).expect("Failed to load settings on second run");
 
-    assert_eq!(
-        second_run_settings.welcome_shown, true,
+    assert!(
+        second_run_settings.welcome_shown,
         "Second run should have welcome_shown = true"
     );
 }
@@ -244,8 +245,10 @@ fn test_second_run_skips_welcome() {
     let settings_path = temp_dir.path().join("settings.json");
 
     // Simulate that welcome was already shown
-    let mut settings = Settings::default();
-    settings.welcome_shown = true;
+    let settings = Settings {
+        welcome_shown: true,
+        ..Default::default()
+    };
     settings
         .save(&settings_path)
         .expect("Failed to save settings");
@@ -254,8 +257,8 @@ fn test_second_run_skips_welcome() {
     let loaded_settings = Settings::load(&settings_path).expect("Failed to load settings");
 
     // Should indicate welcome was already shown
-    assert_eq!(
-        loaded_settings.welcome_shown, true,
+    assert!(
+        loaded_settings.welcome_shown,
         "Second run should detect welcome was already shown"
     );
 }
@@ -270,6 +273,8 @@ fn test_welcome_result_can_store_user_choices() {
     let result_login = WelcomeResult {
         login_requested: true,
         recipes_dir: None,
+        auto_start: true,
+        auto_update: true,
     };
     assert!(result_login.login_requested);
     assert!(result_login.recipes_dir.is_none());
@@ -279,6 +284,8 @@ fn test_welcome_result_can_store_user_choices() {
     let result_dir = WelcomeResult {
         login_requested: false,
         recipes_dir: Some(test_dir.clone()),
+        auto_start: true,
+        auto_update: true,
     };
     assert!(!result_dir.login_requested);
     assert_eq!(result_dir.recipes_dir, Some(test_dir));
@@ -288,6 +295,8 @@ fn test_welcome_result_can_store_user_choices() {
     let result_both = WelcomeResult {
         login_requested: true,
         recipes_dir: Some(test_dir2.clone()),
+        auto_start: true,
+        auto_update: true,
     };
     assert!(result_both.login_requested);
     assert_eq!(result_both.recipes_dir, Some(test_dir2));
@@ -296,6 +305,8 @@ fn test_welcome_result_can_store_user_choices() {
     let result_neither = WelcomeResult {
         login_requested: false,
         recipes_dir: None,
+        auto_start: true,
+        auto_update: true,
     };
     assert!(!result_neither.login_requested);
     assert!(result_neither.recipes_dir.is_none());
@@ -310,12 +321,14 @@ fn test_integration_with_existing_config_system() {
     let settings_path = temp_dir.path().join("settings.json");
 
     // Create settings with various fields set
-    let mut settings = Settings::default();
-    settings.recipes_dir = Some(PathBuf::from("/test/recipes"));
-    settings.sync_interval_secs = 30;
-    settings.auto_start = false;
-    settings.auto_update = false;
-    settings.welcome_shown = true;
+    let settings = Settings {
+        recipes_dir: Some(PathBuf::from("/test/recipes")),
+        sync_interval_secs: 30,
+        auto_start: false,
+        auto_update: false,
+        welcome_shown: true,
+        ..Default::default()
+    };
 
     // Save
     settings
@@ -327,7 +340,7 @@ fn test_integration_with_existing_config_system() {
 
     assert_eq!(loaded.recipes_dir, Some(PathBuf::from("/test/recipes")));
     assert_eq!(loaded.sync_interval_secs, 30);
-    assert_eq!(loaded.auto_start, false);
-    assert_eq!(loaded.auto_update, false);
-    assert_eq!(loaded.welcome_shown, true);
+    assert!(!loaded.auto_start);
+    assert!(!loaded.auto_update);
+    assert!(loaded.welcome_shown);
 }

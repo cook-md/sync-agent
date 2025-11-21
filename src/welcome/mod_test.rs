@@ -15,8 +15,8 @@ fn test_welcome_app_should_close_defaults_to_false() {
     // Test that should_close field defaults to false
     let app = WelcomeApp::new();
 
-    assert_eq!(
-        app.state.should_close, false,
+    assert!(
+        !app.state.should_close,
         "WelcomeApp should_close should default to false"
     );
 }
@@ -31,7 +31,7 @@ fn test_welcome_result_struct_exists() {
         auto_update: true,
     };
 
-    assert_eq!(result.login_requested, false);
+    assert!(!result.login_requested);
     assert!(result.recipes_dir.is_none());
     assert!(result.auto_start);
     assert!(result.auto_update);
@@ -47,8 +47,8 @@ fn test_welcome_result_with_login_requested() {
         auto_update: true,
     };
 
-    assert_eq!(
-        result.login_requested, true,
+    assert!(
+        result.login_requested,
         "WelcomeResult should be able to track login_requested = true"
     );
 }
@@ -83,7 +83,7 @@ fn test_welcome_result_with_both_fields_set() {
         auto_update: true,
     };
 
-    assert_eq!(result.login_requested, true);
+    assert!(result.login_requested);
     assert!(result.recipes_dir.is_some());
     assert_eq!(result.recipes_dir.unwrap(), test_path);
 }
@@ -93,8 +93,8 @@ fn test_welcome_app_can_be_created() {
     // Test that WelcomeApp can be instantiated with default values
     let app = WelcomeApp::new();
 
-    assert_eq!(app.state.should_close, false);
-    assert_eq!(app.state.is_logged_in(), false);
+    assert!(!app.state.should_close);
+    assert!(!app.state.is_logged_in());
     assert!(app.state.recipes_dir.is_none());
 }
 
@@ -103,7 +103,7 @@ fn test_welcome_app_login_can_be_requested() {
     // Test that login can be requested through WelcomeApp
     let mut app = WelcomeApp::new();
 
-    assert_eq!(app.state.is_logged_in(), false);
+    assert!(!app.state.is_logged_in());
 
     // Simulate successful login
     use crate::welcome::state::LoginStatus;
@@ -114,7 +114,7 @@ fn test_welcome_app_login_can_be_requested() {
     }
     app.state.update_from_login_status();
 
-    assert_eq!(app.state.is_logged_in(), true);
+    assert!(app.state.is_logged_in());
 }
 
 #[test]
