@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/cook-md/sync-agent/compare/v0.7.0...v0.7.1) (2025-11-21)
+
+
+### Bug Fixes
+
+* test ([4aa392d](https://github.com/cook-md/sync-agent/commit/4aa392dec7b3e95eb697d03021c6b8c5e36b5365))
+* ui ([f2e13fb](https://github.com/cook-md/sync-agent/commit/f2e13fb306164dd53dee21ed96d2f5c9c605eff8))
+
 ## [0.7.0](https://github.com/cook-md/sync-agent/compare/v0.6.40...v0.7.0) (2025-11-21)
 
 
