@@ -19,8 +19,8 @@ pub fn show_notification(title: &str, message: &str) -> Result<()> {
 
         #[cfg(target_os = "macos")]
         {
-            // On macOS, set the app identifier to use the app's icon
-            notification.subtitle("Cook Sync");
+            // On macOS, we don't need a subtitle - title is already "Cook Sync"
+            // The app icon is set via the bundle identifier
         }
 
         notification.show().map_err(|e| {

@@ -8,6 +8,30 @@ use log::info;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+/// Load window icon from assets
+fn load_window_icon() -> Option<egui::IconData> {
+    let icon_paths = [
+        "assets/logo-1024.png",
+        "assets/icon-256.png",
+        "assets/icon-128.png",
+    ];
+
+    for path in &icon_paths {
+        if let Ok(image_bytes) = std::fs::read(path) {
+            if let Ok(image) = image::load_from_memory(&image_bytes) {
+                let rgba = image.to_rgba8();
+                let (width, height) = rgba.dimensions();
+                return Some(egui::IconData {
+                    rgba: rgba.into_raw(),
+                    width,
+                    height,
+                });
+            }
+        }
+    }
+    None
+}
+
 // Note: We don't open the browser here because we need to start the OAuth callback
 // server first (which happens in browser_login()). The browser will be opened
 // automatically when the daemon starts and calls browser_login() if login_requested is true.
@@ -70,14 +94,18 @@ impl eframe::App for WelcomeApp {
         // Configure style for the theme
         style::configure_style(ctx, self.theme);
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        // Add horizontal margin to the whole panel
+        let frame = egui::Frame::central_panel(&ctx.style())
+            .inner_margin(egui::Margin::symmetric(16.0, 0.0)); // 16px horizontal margin
+
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false; 2])
                 .show(ui, |ui| {
                     // Center content vertically
                     ui.vertical_centered(|ui| {
-                        // Minimal top spacing (no vertical centering)
-                        ui.add_space(style::spacing::MEDIUM);
+                        // Minimal top spacing
+                        ui.add_space(style::spacing::SMALL);
 
                         // Brand header
                         render_brand_header(ui, &self.palette, self.theme, &self.logo_texture);
@@ -124,13 +152,22 @@ impl eframe::App for WelcomeApp {
 }
 
 pub fn show_welcome_screen() -> Result<WelcomeResult> {
+    // Load window icon
+    let icon = load_window_icon();
+
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([600.0, 700.0]) // Compact size
+        .with_resizable(false)
+        .with_decorations(true)
+        .with_transparent(false)
+        .with_title("Welcome to Cook Sync");
+
+    if let Some(icon_data) = icon {
+        viewport = viewport.with_icon(Arc::new(icon_data));
+    }
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([640.0, 810.0]) // Increased from 760px to 810px
-            .with_resizable(false)
-            .with_decorations(true) // Show OS window title bar with native controls
-            .with_transparent(false)
-            .with_title("Welcome to Cook Sync"),
+        viewport,
         ..Default::default()
     };
 

@@ -11,27 +11,24 @@ pub fn render_action_buttons(
 ) -> bool {
     let mut clicked = false;
 
-    ui.add_space(spacing::LARGE);
+    ui.add_space(spacing::MEDIUM);
 
     ui.vertical_centered(|ui| {
-        // Get Started button
-        let button_label = if state.can_proceed() {
-            "Get Started"
+        if state.can_proceed() {
+            // Enabled "Get Started" button
+            let button_response = style::primary_button(ui, "Get Started", true, palette);
+            if button_response.clicked() {
+                clicked = true;
+            }
         } else {
-            "Complete required steps first"
-        };
-
-        let button_response = style::primary_button(ui, button_label, state.can_proceed(), palette);
-
-        if button_response.clicked() {
-            clicked = true;
-        }
-
-        // Show tooltip if not ready
-        if !state.can_proceed() {
+            // Disabled button with Figma styling (#F9F8F6 bg, orange text)
+            let button_response =
+                style::action_button_disabled(ui, "Complete required steps first", palette);
             button_response.on_hover_text("Please complete Steps 1 and 2 to continue");
         }
     });
+
+    ui.add_space(spacing::MEDIUM);
 
     clicked
 }

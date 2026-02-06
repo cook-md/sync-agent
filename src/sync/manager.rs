@@ -270,7 +270,10 @@ impl SyncManager {
                 Ok(Ok(())) => info!("Sync task completed gracefully"),
                 Ok(Err(e)) => warn!("Sync task panicked: {:?}", e),
                 Err(_) => {
-                    warn!("Sync task did not complete within {:?}, cancellation signal sent", timeout);
+                    warn!(
+                        "Sync task did not complete within {:?}, cancellation signal sent",
+                        timeout
+                    );
                 }
             }
         }

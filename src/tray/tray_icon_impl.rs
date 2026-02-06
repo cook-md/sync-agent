@@ -247,11 +247,17 @@ impl SystemTray {
                     }
                     TrayEvent::OpenFolder => {
                         if let Some(dir) = config.settings().lock().unwrap().recipes_dir.clone() {
-                            let _ = open::that(dir);
+                            // Spawn in separate thread to avoid blocking event loop
+                            std::thread::spawn(move || {
+                                let _ = open::that(dir);
+                            });
                         }
                     }
                     TrayEvent::OpenWeb => {
-                        let _ = open::that("https://cook.md");
+                        // Spawn in separate thread to avoid blocking event loop
+                        std::thread::spawn(|| {
+                            let _ = open::that("https://cook.md");
+                        });
                     }
                     TrayEvent::CheckUpdates => {
                         info!("Manual update check requested");

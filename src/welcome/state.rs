@@ -27,6 +27,7 @@ pub struct WelcomeState {
     pub directory_error: Option<String>,
 
     // Preferences state
+    #[allow(dead_code)]
     pub preferences_expanded: bool,
     pub auto_start: bool,
     pub auto_update: bool,
@@ -44,9 +45,9 @@ impl Default for WelcomeState {
             is_logging_in: false,
             recipes_dir: None,
             directory_error: None,
-            preferences_expanded: true, // Default to expanded
-            auto_start: true,  // Default to enabled
-            auto_update: true, // Default to enabled
+            preferences_expanded: false, // Hidden until Steps 1 & 2 complete (per Figma)
+            auto_start: true,            // Default to enabled
+            auto_update: true,           // Default to enabled
             should_close: false,
         }
     }
@@ -141,6 +142,7 @@ impl WelcomeState {
     }
 
     /// Toggle preferences panel
+    #[allow(dead_code)]
     pub fn toggle_preferences(&mut self) {
         self.preferences_expanded = !self.preferences_expanded;
     }
@@ -199,7 +201,7 @@ mod tests {
         assert!(!state.is_setup_complete());
         assert!(!state.can_proceed());
         assert!(state.auto_start);
-        assert!(state.auto_update);
+        assert!(state.auto_update); // Defaults to true
     }
 
     #[test]
@@ -265,10 +267,10 @@ mod tests {
     fn test_preferences_toggle() {
         let mut state = WelcomeState::default();
 
-        assert!(state.preferences_expanded); // Now defaults to expanded
-        state.toggle_preferences();
-        assert!(!state.preferences_expanded);
+        assert!(!state.preferences_expanded); // Defaults to collapsed per Figma
         state.toggle_preferences();
         assert!(state.preferences_expanded);
+        state.toggle_preferences();
+        assert!(!state.preferences_expanded);
     }
 }

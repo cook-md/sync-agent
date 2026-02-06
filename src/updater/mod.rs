@@ -41,11 +41,19 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
         ..Default::default()
     };
 
-    match check_update(current_version.clone(), config) {
+    // Run the blocking update check in a separate thread to avoid runtime conflicts
+    let current_version_clone = current_version.clone();
+    let update_result =
+        tokio::task::spawn_blocking(move || check_update(current_version_clone, config))
+            .await
+            .map_err(|e| SyncError::Other(format!("Update check task failed: {}", e)))?;
+
+    match update_result {
         Ok(Some(update)) => {
+            let version_string = update.version.to_string();
             info!(
                 "Update available: {} -> {}",
-                current_version, update.version
+                current_version, version_string
             );
 
             if auto_install {
@@ -55,16 +63,21 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
                 // We download and open the DMG, then the user completes installation manually.
                 #[cfg(target_os = "macos")]
                 {
-                    match update.download() {
+                    // Run download in blocking thread
+                    let download_result = tokio::task::spawn_blocking(move || update.download())
+                        .await
+                        .map_err(|e| SyncError::Other(format!("Download task failed: {}", e)))?;
+
+                    match download_result {
                         Ok(bytes) => {
                             info!("Update downloaded ({} bytes)", bytes.len());
 
                             // Write to a temporary file
                             let temp_dir = std::env::temp_dir();
                             let dmg_path =
-                                temp_dir.join(format!("cook-sync-{}.dmg", update.version));
+                                temp_dir.join(format!("cook-sync-{}.dmg", version_string));
 
-                            if let Err(e) = std::fs::write(&dmg_path, bytes) {
+                            if let Err(e) = std::fs::write(&dmg_path, &bytes) {
                                 error!("Failed to write DMG file: {}", e);
                                 return Err(SyncError::Update(format!(
                                     "Failed to save update file: {}",
@@ -84,7 +97,7 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
                             }
 
                             info!("DMG opened successfully - user will complete installation");
-                            Ok(Some(update.version.to_string()))
+                            Ok(Some(version_string))
                         }
                         Err(e) => {
                             error!("Failed to download update: {}", e);
@@ -96,11 +109,17 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
                 // On Linux and Windows, use automatic installation
                 #[cfg(not(target_os = "macos"))]
                 {
-                    match update.download_and_install() {
+                    // Run download and install in blocking thread
+                    let install_result =
+                        tokio::task::spawn_blocking(move || update.download_and_install())
+                            .await
+                            .map_err(|e| SyncError::Other(format!("Install task failed: {}", e)))?;
+
+                    match install_result {
                         Ok(()) => {
                             info!("Update downloaded and installed successfully");
                             // Note: The updater will restart the application automatically
-                            Ok(Some(update.version.to_string()))
+                            Ok(Some(version_string))
                         }
                         Err(e) => {
                             error!("Failed to download/install update: {}", e);
@@ -110,7 +129,7 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
                 }
             } else {
                 info!("Update available but auto-install disabled");
-                Ok(Some(update.version.to_string()))
+                Ok(Some(version_string))
             }
         }
         Ok(None) => {

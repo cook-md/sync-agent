@@ -1,5 +1,5 @@
 // Brand header component - logo and welcome text
-use crate::welcome::style::{spacing, typography, AppTheme, ColorPalette};
+use crate::welcome::style::{sizing, spacing, typography, AppTheme, ColorPalette};
 use eframe::egui;
 use std::sync::Arc;
 
@@ -11,22 +11,52 @@ pub fn render_brand_header(
     logo_texture: &Option<Arc<egui::TextureHandle>>,
 ) {
     ui.vertical_centered(|ui| {
-        ui.add_space(spacing::XLARGE);
+        ui.add_space(spacing::MEDIUM);
 
-        // Display the logo if loaded, otherwise show placeholder
-        if let Some(texture) = logo_texture {
-            ui.image(egui::ImageSource::Texture(egui::load::SizedTexture {
-                id: texture.id(),
-                size: egui::vec2(64.0, 64.0),
-            }));
-        } else {
-            // Fallback to emoji if logo fails to load
-            ui.label(egui::RichText::new("🍳").size(64.0));
+        // Logo container - fixed size square (Figma: 113x113px, 30px rounding, #F3F1ED bg)
+        let logo_bg = egui::Color32::from_rgb(243, 241, 237);
+        let container_size = sizing::LOGO_SIZE;
+        let inner_logo_size = container_size * 0.55; // Logo takes ~55% of container
+
+        // Allocate exact size for the logo container
+        let (rect, _response) = ui.allocate_exact_size(
+            egui::vec2(container_size, container_size),
+            egui::Sense::hover(),
+        );
+
+        if ui.is_rect_visible(rect) {
+            // Draw rounded background
+            ui.painter()
+                .rect_filled(rect, sizing::LOGO_ROUNDING, logo_bg);
+
+            // Draw logo centered in the container
+            if let Some(texture) = logo_texture {
+                let logo_rect = egui::Rect::from_center_size(
+                    rect.center(),
+                    egui::vec2(inner_logo_size, inner_logo_size),
+                );
+                // Use TRANSPARENT tint to show original image colors
+                ui.painter().image(
+                    texture.id(),
+                    logo_rect,
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::from_rgba_unmultiplied(255, 255, 255, 255), // No tint
+                );
+            } else {
+                // Fallback - draw centered text
+                ui.painter().text(
+                    rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "🍳",
+                    egui::FontId::proportional(inner_logo_size),
+                    palette.text_primary,
+                );
+            }
         }
 
         ui.add_space(spacing::MEDIUM);
 
-        // Main heading
+        // Main heading (Figma: 34px)
         ui.label(
             egui::RichText::new("Welcome to Cook Sync")
                 .size(typography::HERO_SIZE)
@@ -36,13 +66,13 @@ pub fn render_brand_header(
 
         ui.add_space(spacing::SMALL);
 
-        // Subheading / value proposition
+        // Subheading / value proposition (Figma: 15px)
         ui.label(
             egui::RichText::new("Keep your recipes synced across all your devices")
-                .size(typography::BODY_LARGE_SIZE)
+                .size(typography::BODY_REGULAR_SIZE)
                 .color(palette.text_secondary),
         );
 
-        ui.add_space(spacing::XLARGE);
+        ui.add_space(spacing::MEDIUM);
     });
 }
