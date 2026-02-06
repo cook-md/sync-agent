@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/cook-md/sync-agent/compare/v0.7.0...v0.7.1) (2026-02-06)
+
+
+### Bug Fixes
+
+* test ([4aa392d](https://github.com/cook-md/sync-agent/commit/4aa392dec7b3e95eb697d03021c6b8c5e36b5365))
+* ui ([f2e13fb](https://github.com/cook-md/sync-agent/commit/f2e13fb306164dd53dee21ed96d2f5c9c605eff8))
+* welcome screen icon and checkbox styling ([c0b623a](https://github.com/cook-md/sync-agent/commit/c0b623ab8e9289df3e1c4f16ad89264ce0fcad61))
+* welcome screen styling ([e62d9ea](https://github.com/cook-md/sync-agent/commit/e62d9ea6e4a19567ddf0e6ceafee3f20f6ba2f18))
+
 ## [0.7.0](https://github.com/cook-md/sync-agent/compare/v0.6.40...v0.7.0) (2025-11-21)
 
 
