@@ -156,8 +156,8 @@ pub fn show_welcome_screen() -> Result<WelcomeResult> {
     let icon = load_window_icon();
 
     let mut viewport = egui::ViewportBuilder::default()
-        .with_inner_size([600.0, 700.0]) // Compact size
-        .with_resizable(false)
+        .with_inner_size([600.0, 800.0]) // Compact size
+        .with_resizable(true)
         .with_decorations(true)
         .with_transparent(false)
         .with_title("Welcome to Cook Sync");

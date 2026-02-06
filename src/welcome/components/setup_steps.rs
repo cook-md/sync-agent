@@ -423,10 +423,14 @@ fn render_preferences_checkboxes(
     state: &mut WelcomeState,
     palette: &ColorPalette,
 ) {
+    // Indent checkboxes to align with step content (past the status indicator)
+    let indent = sizing::ICON_SIZE_MEDIUM + spacing::SMALL;
+
     // Auto-start checkbox
     ui.horizontal(|ui| {
+        ui.add_space(indent);
         render_custom_checkbox(ui, &mut state.auto_start, palette);
-        ui.add_space(spacing::MEDIUM);
+        ui.add_space(spacing::SMALL);
         ui.label(
             egui::RichText::new("Auto-start the app with system")
                 .size(typography::BUTTON_TEXT_SIZE)
@@ -438,8 +442,9 @@ fn render_preferences_checkboxes(
 
     // Auto-update checkbox
     ui.horizontal(|ui| {
+        ui.add_space(indent);
         render_custom_checkbox(ui, &mut state.auto_update, palette);
-        ui.add_space(spacing::MEDIUM);
+        ui.add_space(spacing::SMALL);
         ui.label(
             egui::RichText::new("Automatically update")
                 .size(typography::BUTTON_TEXT_SIZE)
@@ -448,7 +453,7 @@ fn render_preferences_checkboxes(
     });
 }
 
-/// Render a custom checkbox matching Figma design
+/// Render a custom square checkbox matching Figma design
 fn render_custom_checkbox(ui: &mut egui::Ui, checked: &mut bool, palette: &ColorPalette) {
     let size = sizing::ICON_SIZE_MEDIUM;
     let (rect, response) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::click());
@@ -460,11 +465,12 @@ fn render_custom_checkbox(ui: &mut egui::Ui, checked: &mut bool, palette: &Color
     if ui.is_rect_visible(rect) {
         let painter = ui.painter();
         let center = rect.center();
-        let radius = size / 2.0;
+        let rounding = 4.0;
+        let rect_inset = rect.shrink(2.0);
 
         if *checked {
-            // Orange filled circle with white checkmark
-            painter.circle_filled(center, radius, palette.brand_orange);
+            // Orange filled square with white checkmark
+            painter.rect_filled(rect_inset, rounding, palette.brand_orange);
 
             // White checkmark
             let check_color = egui::Color32::WHITE;
@@ -477,9 +483,7 @@ fn render_custom_checkbox(ui: &mut egui::Ui, checked: &mut bool, palette: &Color
             painter.line_segment([check_start, check_mid], stroke);
             painter.line_segment([check_mid, check_end], stroke);
         } else {
-            // Empty square with rounded corners (unchecked state from Figma)
-            let rounding = 4.0;
-            let rect_inset = rect.shrink(2.0);
+            // Empty square with rounded corners (unchecked state)
             painter.rect_stroke(
                 rect_inset,
                 rounding,
