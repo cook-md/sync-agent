@@ -145,6 +145,20 @@ jobs:
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.platform.target }}
 
+      - name: Copy binary to default release directory
+        shell: bash
+        run: |
+          # cargo-packager expects binaries in target/release/, but --target puts them
+          # in target/<triple>/release/. Copy them to the expected location.
+          SOURCE="target/${{ matrix.platform.target }}/release"
+          DEST="target/release"
+          if [ "$SOURCE" != "$DEST" ] && [ -d "$SOURCE" ]; then
+            mkdir -p "$DEST"
+            cp "$SOURCE"/cook-sync* "$DEST/" 2>/dev/null || true
+            echo "Copied binaries from $SOURCE to $DEST"
+            ls -la "$DEST"/cook-sync* 2>/dev/null || true
+          fi
+
       - name: Import Code Signing Certificate (macOS)
         if: runner.os == 'macOS'
         env:
@@ -199,7 +213,7 @@ jobs:
           echo "✅ Notarization profile 'cook-sync-ci' created"
 
       - name: Package application
-        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
+        run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_KEYCHAIN_PROFILE: cook-sync-ci
