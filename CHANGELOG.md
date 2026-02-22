@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/cook-md/sync-agent/compare/v0.7.1...v0.7.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* update macOS runner from retired macos-13 to macos-15 ([f6cc5d3](https://github.com/cook-md/sync-agent/commit/f6cc5d3385af423d65c109ae4324b280eda15bc9))
+
 ## [0.7.1](https://github.com/cook-md/sync-agent/compare/v0.7.0...v0.7.1) (2026-02-06)
 
 
