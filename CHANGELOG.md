@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/cook-md/sync-agent/compare/v0.7.2...v0.7.3) (2026-02-22)
+
+
+### Bug Fixes
+
+* copy cross-compiled binary to target/release for cargo-packager ([2bc947a](https://github.com/cook-md/sync-agent/commit/2bc947a61cd904363da2f1cb58fd8e36664bf4ce))
+
 ## [0.7.2](https://github.com/cook-md/sync-agent/compare/v0.7.1...v0.7.2) (2026-02-22)
 
 
