@@ -45,7 +45,7 @@ jobs:
             artifact_name: linux-x86_64
 
           - name: macOS x86_64
-            os: macos-13
+            os: macos-15
             target: x86_64-apple-darwin
             artifact_name: macos-x86_64
 
@@ -138,8 +138,12 @@ jobs:
           fi
         shell: bash
 
+      - name: Add Rust target (cross-compilation)
+        if: matrix.platform.target != ''
+        run: rustup target add ${{ matrix.platform.target }}
+
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --target ${{ matrix.platform.target }}
 
       - name: Import Code Signing Certificate (macOS)
         if: runner.os == 'macOS'
@@ -195,7 +199,7 @@ jobs:
           echo "✅ Notarization profile 'cook-sync-ci' created"
 
       - name: Package application
-        run: cargo packager --release --formats ${{ steps.format.outputs.format }} --verbose
+        run: cargo packager --release --target ${{ matrix.platform.target }} --formats ${{ steps.format.outputs.format }} --verbose
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_KEYCHAIN_PROFILE: cook-sync-ci
