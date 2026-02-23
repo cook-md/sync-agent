@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.4](https://github.com/cook-md/sync-agent/compare/v0.7.3...v0.7.4) (2026-02-23)
+
+
+### Bug Fixes
+
+* use correct platform keys in update manifest and surface update errors ([eb0d71b](https://github.com/cook-md/sync-agent/commit/eb0d71be3e480dd0ad3d4e6affa027ae686ccf2b))
+
 ## [0.7.3](https://github.com/cook-md/sync-agent/compare/v0.7.2...v0.7.3) (2026-02-22)
 
 
