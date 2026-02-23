@@ -138,8 +138,7 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
         }
         Err(e) => {
             warn!("Update check failed: {}", e);
-            // Don't fail the app if update check fails, just log it
-            Ok(None)
+            Err(SyncError::Update(format!("Update check failed: {}", e)))
         }
     }
 }

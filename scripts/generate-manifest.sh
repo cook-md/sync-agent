@@ -49,7 +49,7 @@ FIRST_ENTRY=true
 if [ "$DARWIN_X64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_X64_SIG" ]; then
     [ "$FIRST_ENTRY" = false ] && echo "," >> manifest.json
     cat >> manifest.json <<EOF_ENTRY
-    "darwin-x86_64": {
+    "macos-x86_64": {
       "signature": "${DARWIN_X64_SIG}",
       "url": "${BASE_URL}/Cook.Sync_${VERSION}_x64.dmg",
       "format": "app"
@@ -62,7 +62,7 @@ fi
 if [ "$DARWIN_ARM64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_ARM64_SIG" ]; then
     [ "$FIRST_ENTRY" = false ] && echo "," >> manifest.json
     cat >> manifest.json <<EOF_ENTRY
-    "darwin-aarch64": {
+    "macos-aarch64": {
       "signature": "${DARWIN_ARM64_SIG}",
       "url": "${BASE_URL}/Cook.Sync_${VERSION}_aarch64.dmg",
       "format": "app"
