@@ -564,10 +564,24 @@ impl SystemTray {
     }
 
     fn start_status_updater(&self, proxy: EventLoopProxy<TrayEvent>) {
-        // Update status periodically (no need to check theme here anymore)
-        std::thread::spawn(move || loop {
-            std::thread::sleep(std::time::Duration::from_secs(10));
-            let _ = proxy.send_event(TrayEvent::UpdateStatus);
+        // Update status periodically
+        // First update comes quickly to catch initial sync completion,
+        // then switches to normal interval
+        std::thread::spawn(move || {
+            // Quick initial updates to catch first sync completion
+            for _ in 0..5 {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                if proxy.send_event(TrayEvent::UpdateStatus).is_err() {
+                    return;
+                }
+            }
+            // Then normal interval
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(10));
+                if proxy.send_event(TrayEvent::UpdateStatus).is_err() {
+                    return;
+                }
+            }
         });
     }
 }

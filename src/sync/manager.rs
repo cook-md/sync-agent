@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio::time::{interval, Duration};
-use tokio_util::sync::CancellationToken;
 
 pub struct SyncManager {
     auth: Arc<AuthManager>,
@@ -76,7 +75,7 @@ impl SyncManager {
             ));
         }
 
-        // Create sync context with listener
+        // Create sync context with listener for status callbacks
         let sync_context = SyncContext::new();
         let listener = Arc::new(SyncManagerListener::new(Arc::clone(&self.state)));
         sync_context.set_listener(listener);
@@ -157,7 +156,7 @@ impl SyncManager {
                         &auth,
                         &config,
                         &recipes_dir,
-                        token.child_token(),
+                        Arc::clone(&sync_context),
                     )
                     .await;
 
@@ -299,7 +298,7 @@ async fn perform_sync_with_context(
     auth: &AuthManager,
     config: &Config,
     recipes_dir: &Path,
-    token: CancellationToken,
+    context: Arc<cooklang_sync_client::SyncContext>,
 ) -> Result<()> {
     // Get current session
     let session = auth
@@ -320,10 +319,8 @@ async fn perform_sync_with_context(
     let recipes_dir_str = recipes_dir.to_string_lossy().to_string();
     let db_path_str = db_path.to_string_lossy().to_string();
 
-    // Run sync with the new API
     cooklang_sync_client::run_async(
-        token,
-        None, // listener is already set on the context
+        context,
         &recipes_dir_str,
         &db_path_str,
         &sync_endpoint,

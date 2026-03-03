@@ -27,7 +27,7 @@ local-prod = []  # For testing production endpoints locally
 
 [dependencies]
 # Core functionality
-cooklang-sync-client = { version = "0.4.8" }
+cooklang-sync-client = { version = "0.4.9" }
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7" }
 serde = { version = "1", features = ["derive"] }
