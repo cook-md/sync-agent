@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.6](https://github.com/cook-md/sync-agent/compare/v0.7.5...v0.7.6) (2026-03-03)
+
+
+### Bug Fixes
+
+* pass listener to sync client so tray status updates correctly ([fbbf056](https://github.com/cook-md/sync-agent/commit/fbbf0563402de09c3a54e2d92aa00e5c5b5cc052))
+
 ## [0.7.5](https://github.com/cook-md/sync-agent/compare/v0.7.4...v0.7.5) (2026-03-03)
 
 
