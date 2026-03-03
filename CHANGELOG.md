@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.5](https://github.com/cook-md/sync-agent/compare/v0.7.4...v0.7.5) (2026-03-03)
+
+
+### Bug Fixes
+
+* restore macOS x64 DMG and fix manifest missing macOS entries ([bfc4c19](https://github.com/cook-md/sync-agent/commit/bfc4c19790acc6ffe0312667184b4960ec6f8224))
+* updated sync ([de4f413](https://github.com/cook-md/sync-agent/commit/de4f413ff16c2c8988f9b11d78f8bd7aba7e57e0))
+
 ## [0.7.4](https://github.com/cook-md/sync-agent/compare/v0.7.3...v0.7.4) (2026-02-23)
 
 
