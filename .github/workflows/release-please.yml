@@ -228,6 +228,26 @@ jobs:
         run: |
           security delete-keychain temp.keychain || true
 
+      - name: Rename DMG for cross-compiled macOS builds
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          TARGET="${{ matrix.platform.target }}"
+          # When cross-compiling on ARM64 host for x86_64, cargo-packager
+          # names the DMG with the host arch (aarch64) instead of target (x64).
+          # Rename to match the expected naming convention.
+          if [ "$TARGET" = "x86_64-apple-darwin" ]; then
+            for f in *_aarch64.dmg *_aarch64.dmg.sig; do
+              if [ -f "$f" ]; then
+                NEW_NAME=$(echo "$f" | sed 's/_aarch64\.dmg/_x64.dmg/')
+                echo "Renaming $f -> $NEW_NAME"
+                mv "$f" "$NEW_NAME"
+              fi
+            done
+          fi
+          echo "macOS packages:"
+          ls -lh *.dmg *.dmg.sig 2>/dev/null || true
+
       - name: Prepare release assets
         shell: bash
         run: |

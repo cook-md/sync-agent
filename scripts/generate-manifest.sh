@@ -28,7 +28,7 @@ read_signature() {
 
 # Find signature files (cargo-packager uses underscores in filenames)
 DARWIN_X64_SIG=$(read_signature "*_x64.dmg.sig")
-DARWIN_ARM64_SIG=$(read_signature "*_arm64.dmg.sig" || read_signature "*_aarch64.dmg.sig")
+DARWIN_ARM64_SIG=$(read_signature "*_aarch64.dmg.sig")
 LINUX_X64_SIG=$(read_signature "*_x86_64.AppImage.sig")
 WINDOWS_X64_NSIS_SIG=$(read_signature "*_x64-setup.exe.sig")
 WINDOWS_X64_MSI_SIG=$(read_signature "*.msi.sig")
