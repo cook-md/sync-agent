@@ -18,7 +18,13 @@ pub struct SystemKeyring;
 impl KeyringStore for SystemKeyring {
     fn get_password(&self, service: &str, key: &str) -> Result<Option<String>> {
         debug!("Getting password from keyring: service={service}, key={key}");
-        let entry = keyring::Entry::new(service, key)?;
+        let entry = match keyring::Entry::new(service, key) {
+            Ok(entry) => entry,
+            Err(e) => {
+                error!("Keyring backend unavailable (service={service}, key={key}): {e}");
+                return Ok(None);
+            }
+        };
         match entry.get_password() {
             Ok(password) => {
                 debug!("Password found in keyring for key: {key}");
@@ -29,8 +35,8 @@ impl KeyringStore for SystemKeyring {
                 Ok(None)
             }
             Err(e) => {
-                error!("Error getting password from keyring: {e}");
-                Err(e.into())
+                error!("Failed to read keyring (service={service}, key={key}): {e}");
+                Ok(None)
             }
         }
     }

@@ -515,19 +515,36 @@ async fn configure(
             s.auto_start = enabled;
         })?;
 
-        // Update platform auto-start
+        // Update platform auto-start (non-fatal — config is already saved)
         let platform = platform::get_platform();
-        let exe_path = std::env::current_exe()?
-            .to_str()
-            .ok_or_else(|| error::SyncError::Other("Invalid executable path".to_string()))?
-            .to_string();
-
-        if enabled {
-            platform.enable_auto_start("cook-sync", &exe_path)?;
-            println!("Auto-start enabled");
-        } else {
-            platform.disable_auto_start("cook-sync")?;
-            println!("Auto-start disabled");
+        match std::env::current_exe().and_then(|p| {
+            p.to_str()
+                .map(|s| s.to_string())
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid executable path"))
+        }) {
+            Ok(exe_path) => {
+                if enabled {
+                    match platform.enable_auto_start("cook-sync", &exe_path) {
+                        Ok(()) => println!("Auto-start enabled"),
+                        Err(e) => {
+                            log::warn!("Failed to register auto-start with system: {e}");
+                            println!("Auto-start setting saved, but system registration failed: {e}");
+                        }
+                    }
+                } else {
+                    match platform.disable_auto_start("cook-sync") {
+                        Ok(()) => println!("Auto-start disabled"),
+                        Err(e) => {
+                            log::warn!("Failed to unregister auto-start from system: {e}");
+                            println!("Auto-start setting saved, but system unregistration failed: {e}");
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log::warn!("Failed to get executable path for auto-start: {e}");
+                println!("Auto-start setting saved, but system registration failed: {e}");
+            }
         }
         changed = true;
     }

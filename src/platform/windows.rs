@@ -1,6 +1,5 @@
 use super::{PlatformIntegration, ThemeChange, ThemeWatcher};
 use crate::error::{Result, SyncError};
-use auto_launch::AutoLaunchBuilder;
 use log::{debug, error, info};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
@@ -14,49 +13,41 @@ use winreg::RegKey;
 
 pub struct WindowsIntegration;
 
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+
 impl PlatformIntegration for WindowsIntegration {
     fn enable_auto_start(&self, app_name: &str, app_path: &str) -> Result<()> {
-        let auto = AutoLaunchBuilder::new()
-            .set_app_name(app_name)
-            .set_app_path(app_path)
-            .set_args(&["daemon"])
-            .build()
-            .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (key, _) = hkcu
+            .create_subkey(RUN_KEY)
+            .map_err(|e| SyncError::Platform(format!("Failed to open Run registry key: {e}")))?;
 
-        auto.enable()
-            .map_err(|e| SyncError::Platform(format!("Failed to enable auto-start: {e}")))?;
+        // Quote the path to handle spaces (e.g. "C:\Program Files\cook-sync\bin\cook-sync.exe")
+        let value = format!("\"{}\" daemon", app_path);
+        key.set_value(app_name, &value)
+            .map_err(|e| SyncError::Platform(format!("Failed to set auto-start registry value: {e}")))?;
 
-        info!("Auto-start enabled for {}", app_name);
+        info!("Auto-start enabled for {} (registry value: {})", app_name, value);
         Ok(())
     }
 
     fn disable_auto_start(&self, app_name: &str) -> Result<()> {
-        let app_path = std::env::current_exe()?;
-        let auto = AutoLaunchBuilder::new()
-            .set_app_name(app_name)
-            .set_app_path(app_path.to_str().unwrap())
-            .set_args(&["daemon"])
-            .build()
-            .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
-
-        auto.disable()
-            .map_err(|e| SyncError::Platform(format!("Failed to disable auto-start: {e}")))?;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        if let Ok(key) = hkcu.open_subkey_with_flags(RUN_KEY, KEY_WRITE) {
+            // Ignore error if the value doesn't exist (already disabled)
+            let _ = key.delete_value(app_name);
+        }
 
         info!("Auto-start disabled for {}", app_name);
         Ok(())
     }
 
     fn is_auto_start_enabled(&self, app_name: &str) -> Result<bool> {
-        let app_path = std::env::current_exe()?;
-        let auto = AutoLaunchBuilder::new()
-            .set_app_name(app_name)
-            .set_app_path(app_path.to_str().unwrap())
-            .set_args(&["daemon"])
-            .build()
-            .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
-
-        auto.is_enabled()
-            .map_err(|e| SyncError::Platform(format!("Failed to check auto-start status: {e}")))
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        match hkcu.open_subkey(RUN_KEY) {
+            Ok(key) => Ok(key.get_value::<String, _>(app_name).is_ok()),
+            Err(_) => Ok(false),
+        }
     }
 
     fn is_dark_mode(&self) -> bool {
