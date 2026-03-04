@@ -114,20 +114,32 @@ impl Daemon {
             }
         });
 
-        // Sync auto-start state with system
+        // Sync auto-start state with system (non-fatal — daemon must not crash for this)
         let platform = crate::platform::get_platform();
         let config_auto_start = self.config.settings().lock().unwrap().auto_start;
         let system_auto_start = platform.is_auto_start_enabled("cook-sync").unwrap_or(false);
 
         if config_auto_start && !system_auto_start {
             // Config says enabled but system doesn't have it - install it
-            let app_path = std::env::current_exe()?;
-            platform.enable_auto_start("cook-sync", &app_path.to_string_lossy())?;
-            info!("Auto-start enabled: registered with system");
+            match std::env::current_exe() {
+                Ok(app_path) => {
+                    if let Err(e) =
+                        platform.enable_auto_start("cook-sync", &app_path.to_string_lossy())
+                    {
+                        log::warn!("Failed to register auto-start with system: {e}");
+                    } else {
+                        info!("Auto-start enabled: registered with system");
+                    }
+                }
+                Err(e) => log::warn!("Failed to get executable path for auto-start: {e}"),
+            }
         } else if !config_auto_start && system_auto_start {
             // Config says disabled but system has it - unregister it
-            platform.disable_auto_start("cook-sync")?;
-            info!("Auto-start disabled: unregistered from system");
+            if let Err(e) = platform.disable_auto_start("cook-sync") {
+                log::warn!("Failed to unregister auto-start from system: {e}");
+            } else {
+                info!("Auto-start disabled: unregistered from system");
+            }
         }
 
         // Create and run system tray
