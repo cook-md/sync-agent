@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.7](https://github.com/cook-md/sync-agent/compare/v0.7.6...v0.7.7) (2026-03-04)
+
+
+### Bug Fixes
+
+* auto-start on Windows and Linux after system restart ([f54f40e](https://github.com/cook-md/sync-agent/commit/f54f40e2c339954de3eda038383246fbaefeae8a))
+* auto-start on Windows and Linux after system restart ([a4ae9ea](https://github.com/cook-md/sync-agent/commit/a4ae9eab6bc9562cd46fe49b48732975afa39d09))
+
 ## [0.7.6](https://github.com/cook-md/sync-agent/compare/v0.7.5...v0.7.6) (2026-03-03)
 
 
