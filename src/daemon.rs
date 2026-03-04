@@ -123,7 +123,9 @@ impl Daemon {
             // Config says enabled but system doesn't have it - install it
             match std::env::current_exe() {
                 Ok(app_path) => {
-                    if let Err(e) = platform.enable_auto_start("cook-sync", &app_path.to_string_lossy()) {
+                    if let Err(e) =
+                        platform.enable_auto_start("cook-sync", &app_path.to_string_lossy())
+                    {
                         log::warn!("Failed to register auto-start with system: {e}");
                     } else {
                         info!("Auto-start enabled: registered with system");

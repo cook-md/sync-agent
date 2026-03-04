@@ -518,9 +518,9 @@ async fn configure(
         // Update platform auto-start (non-fatal — config is already saved)
         let platform = platform::get_platform();
         match std::env::current_exe().and_then(|p| {
-            p.to_str()
-                .map(|s| s.to_string())
-                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid executable path"))
+            p.to_str().map(|s| s.to_string()).ok_or_else(|| {
+                std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid executable path")
+            })
         }) {
             Ok(exe_path) => {
                 if enabled {
@@ -528,7 +528,9 @@ async fn configure(
                         Ok(()) => println!("Auto-start enabled"),
                         Err(e) => {
                             log::warn!("Failed to register auto-start with system: {e}");
-                            println!("Auto-start setting saved, but system registration failed: {e}");
+                            println!(
+                                "Auto-start setting saved, but system registration failed: {e}"
+                            );
                         }
                     }
                 } else {
@@ -536,7 +538,9 @@ async fn configure(
                         Ok(()) => println!("Auto-start disabled"),
                         Err(e) => {
                             log::warn!("Failed to unregister auto-start from system: {e}");
-                            println!("Auto-start setting saved, but system unregistration failed: {e}");
+                            println!(
+                                "Auto-start setting saved, but system unregistration failed: {e}"
+                            );
                         }
                     }
                 }

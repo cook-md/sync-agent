@@ -24,10 +24,14 @@ impl PlatformIntegration for WindowsIntegration {
 
         // Quote the path to handle spaces (e.g. "C:\Program Files\cook-sync\bin\cook-sync.exe")
         let value = format!("\"{}\" daemon", app_path);
-        key.set_value(app_name, &value)
-            .map_err(|e| SyncError::Platform(format!("Failed to set auto-start registry value: {e}")))?;
+        key.set_value(app_name, &value).map_err(|e| {
+            SyncError::Platform(format!("Failed to set auto-start registry value: {e}"))
+        })?;
 
-        info!("Auto-start enabled for {} (registry value: {})", app_name, value);
+        info!(
+            "Auto-start enabled for {} (registry value: {})",
+            app_name, value
+        );
         Ok(())
     }
 
