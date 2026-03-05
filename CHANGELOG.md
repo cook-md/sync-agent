@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.8](https://github.com/cook-md/sync-agent/compare/v0.7.7...v0.7.8) (2026-03-05)
+
+
+### Bug Fixes
+
+* use correct release tag format in update manifest ([2f7797e](https://github.com/cook-md/sync-agent/commit/2f7797eaa9db090ab846ecea835a21710c64e3cd))
+* use correct release tag format in update manifest ([4fdbc01](https://github.com/cook-md/sync-agent/commit/4fdbc01deea0120bb92010cab584c414ce50f4e1))
+
 ## [0.7.7](https://github.com/cook-md/sync-agent/compare/v0.7.6...v0.7.7) (2026-03-04)
 
 
