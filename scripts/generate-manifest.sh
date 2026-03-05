@@ -7,7 +7,7 @@ set -e
 VERSION=${1:-"0.0.0"}
 ARTIFACTS_DIR=${2:-"target/release/bundle"}
 REPO="cook-md/sync-agent"
-BASE_URL="https://github.com/${REPO}/releases/download/cook-sync-v${VERSION}"
+BASE_URL="https://github.com/${REPO}/releases/download/v${VERSION}"
 
 echo "Generating manifest.json for version ${VERSION}"
 echo "Artifacts directory: ${ARTIFACTS_DIR}"
