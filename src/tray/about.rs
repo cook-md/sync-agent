@@ -38,7 +38,6 @@ pub fn show_about_dialog(log_file_path: &std::path::Path) {
         // Fallback: show a notification with the about info
         warn!("No dialog tool available (zenity/kdialog), falling back to notification");
         let _ = crate::notifications::show_notification("About Cook Sync", &message);
-        return;
     }
 
     #[cfg(not(target_os = "linux"))]
