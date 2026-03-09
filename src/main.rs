@@ -87,6 +87,13 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // On Windows release builds, the binary uses windows_subsystem = "windows" to
+    // avoid showing a console window for the tray/daemon. Attach to the parent
+    // console early so CLI commands (reset, status, --help, etc.) can use
+    // stdout/stderr/stdin. Harmless no-op when launched without a parent console.
+    #[cfg(windows)]
+    attach_parent_console();
+
     // Initialize configuration to get log file path
     let config = config::Config::new()?;
     let log_file_path = config.paths().log_file.clone();
@@ -850,4 +857,18 @@ async fn reset_all_data(skip_confirmation: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Attach to the parent process's console on Windows.
+///
+/// Release builds use `windows_subsystem = "windows"` to hide the console window
+/// when running as a tray app. This means stdout/stderr/stdin are not connected
+/// when launched from cmd.exe or PowerShell. This function re-attaches them so
+/// CLI commands (reset, status, config, etc.) can print output and read input.
+#[cfg(windows)]
+fn attach_parent_console() {
+    unsafe {
+        // ATTACH_PARENT_PROCESS = u32::MAX (-1 as u32)
+        winapi::um::wincon::AttachConsole(u32::MAX);
+    }
 }
