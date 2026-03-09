@@ -32,7 +32,6 @@ struct TrayState {
     runtime_handle: Handle,
 
     // Tray state
-    status: Arc<Mutex<SyncStatus>>,
     status_text: Arc<Mutex<String>>,
     folder_path: Arc<Mutex<Option<String>>>,
     user_email: Arc<Mutex<Option<String>>>,
@@ -63,7 +62,6 @@ impl TrayState {
             auth_manager,
             config,
             runtime_handle,
-            status: Arc::new(Mutex::new(SyncStatus::Starting)),
             status_text: Arc::new(Mutex::new("Starting".to_string())),
             folder_path: Arc::new(Mutex::new(None)),
             user_email: Arc::new(Mutex::new(None)),
@@ -492,17 +490,16 @@ impl SystemTray {
 
         let tray = CookSyncTray::new(Arc::clone(&self.state));
 
-        // Spawn the tray service (this is async but doesn't block)
+        // Spawn the tray service
         let service = ksni::TrayService::new(tray);
+        // Get handle BEFORE spawning so we can signal menu updates
+        let handle = service.handle();
         service.spawn();
 
         info!("ksni tray service started");
 
-        // Note: ksni automatically calls menu() when the user clicks the tray icon,
-        // so the menu will always show current state without manual updates
-
-        // Start background status updater
-        self.start_status_updater();
+        // Start background status updater (passes handle to signal ksni of changes)
+        self.start_status_updater(handle);
 
         // Start theme watcher
         self.start_theme_watcher();
@@ -519,41 +516,50 @@ impl SystemTray {
         Ok(())
     }
 
-    fn start_status_updater(&self) {
+    fn start_status_updater(&self, handle: ksni::Handle<CookSyncTray>) {
         let sync_manager = Arc::clone(&self.state.sync_manager);
         let auth_manager = Arc::clone(&self.state.auth_manager);
         let config = Arc::clone(&self.state.config);
-        let status_arc = Arc::clone(&self.state.status);
         let status_text_arc = Arc::clone(&self.state.status_text);
         let user_email_arc = Arc::clone(&self.state.user_email);
         let is_logged_in_arc = Arc::clone(&self.state.is_logged_in);
         let folder_path_arc = Arc::clone(&self.state.folder_path);
+        let sync_paused_arc = Arc::clone(&self.state.sync_paused);
         let shutdown_signal = Arc::clone(&self.state.shutdown_signal);
 
         std::thread::spawn(move || {
             while !shutdown_signal.load(Ordering::Relaxed) {
-                // Update sync status
-                let state = sync_manager.state();
-                let status = state.lock().unwrap().status;
-                let mut current_status = status_arc.lock().unwrap();
+                // Read current state
+                let sync_state = sync_manager.state();
+                let sync_state_lock = sync_state.lock().unwrap();
+                let raw_status = sync_state_lock.status;
+                let error_message = sync_state_lock.error_message.clone();
+                drop(sync_state_lock);
 
-                if *current_status != status {
-                    *current_status = status;
+                let has_auth = auth_manager.is_authenticated();
+                let has_folder = config.settings().lock().unwrap().recipes_dir.is_some();
 
-                    let text = match status {
+                // Determine display status (match macOS/Windows logic)
+                let status_text = if !has_auth && !has_folder {
+                    "Not logged in, no folder selected"
+                } else if !has_auth {
+                    "Not logged in"
+                } else if !has_folder {
+                    "No folder selected"
+                } else {
+                    match raw_status {
                         SyncStatus::Starting => "Starting",
                         SyncStatus::Idle => "Idle",
                         SyncStatus::Syncing => "Syncing",
                         SyncStatus::Paused => "Paused",
                         SyncStatus::Offline => "Offline",
-                        SyncStatus::Error => "Error",
-                    };
+                        SyncStatus::Error => error_message.as_deref().unwrap_or("Error"),
+                    }
+                };
 
-                    *status_text_arc.lock().unwrap() = text.to_string();
-                }
-                drop(current_status);
+                *status_text_arc.lock().unwrap() = status_text.to_string();
 
-                // Update auth state from auth manager
+                // Update auth state
                 if let Some(session) = auth_manager.get_session() {
                     *user_email_arc.lock().unwrap() = session.email.clone();
                     *is_logged_in_arc.lock().unwrap() = true;
@@ -562,9 +568,16 @@ impl SystemTray {
                     *is_logged_in_arc.lock().unwrap() = false;
                 }
 
-                // Update folder path from config
+                // Update folder path
                 let recipes_dir = config.settings().lock().unwrap().recipes_dir.clone();
                 *folder_path_arc.lock().unwrap() = recipes_dir.map(|p| p.display().to_string());
+
+                // Update pause state from sync manager
+                *sync_paused_arc.lock().unwrap() = raw_status == SyncStatus::Paused;
+
+                // Signal ksni to re-read menu() and send D-Bus updates
+                // Without this, the menu is cached from initial creation and never refreshes
+                handle.update(|_| {});
 
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
