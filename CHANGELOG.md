@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.9](https://github.com/cook-md/sync-agent/compare/v0.7.8...v0.7.9) (2026-03-09)
+
+
+### Bug Fixes
+
+* Linux tray not showing auth state and About dialog not opening ([1b883b1](https://github.com/cook-md/sync-agent/commit/1b883b192ec31f62125e310072bf540992d574e0))
+* Linux tray not showing auth state and About dialog not opening ([99bd6f1](https://github.com/cook-md/sync-agent/commit/99bd6f1ce4b28338b0070087cd61cf3c2561da01))
+* regenerate icons with proper padding for macOS Dock sizing ([424b77e](https://github.com/cook-md/sync-agent/commit/424b77ed605688abbc3b8dab919d339dd4bc53e9))
+* set macOS notification bundle identifier to prevent "use_default" dialog ([72bae1f](https://github.com/cook-md/sync-agent/commit/72bae1f0fdb228b8729035034c5469e528e1d889))
+* set macOS notification bundle identifier to prevent use_default dialog ([2972e32](https://github.com/cook-md/sync-agent/commit/2972e32a23f33cfebb994608c97fa4e2f7da2a56))
+
 ## [0.7.8](https://github.com/cook-md/sync-agent/compare/v0.7.7...v0.7.8) (2026-03-05)
 
 
