@@ -144,6 +144,8 @@ jobs:
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.platform.target }}
+        env:
+          CARGO_PACKAGER_PUBLIC_KEY: ${{ secrets.CARGO_PACKAGER_PUBLIC_KEY }}
 
       - name: Copy binary to default release directory
         shell: bash

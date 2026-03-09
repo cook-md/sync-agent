@@ -180,6 +180,20 @@ async fn start_daemon() -> Result<()> {
         }
     }
 
+    // Register auto-start with system before spawning daemon
+    // This ensures auto-start is set even if the daemon subprocess fails to start
+    {
+        let platform = platform::get_platform();
+        let auto_start_enabled = config.settings().lock().unwrap().auto_start;
+        if auto_start_enabled {
+            if let Ok(exe) = std::env::current_exe() {
+                if let Err(e) = platform.enable_auto_start("cook-sync", &exe.to_string_lossy()) {
+                    log::warn!("Failed to register auto-start: {e}");
+                }
+            }
+        }
+    }
+
     println!("Starting Cook Sync...");
 
     // Fork and run in background

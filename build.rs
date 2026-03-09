@@ -9,6 +9,9 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let pubkey_path = PathBuf::from(&manifest_dir).join(".signing-key.pem.pub");
 
+    // Re-run build script if the env var changes
+    println!("cargo:rerun-if-env-changed=CARGO_PACKAGER_PUBLIC_KEY");
+
     // Check if CARGO_PACKAGER_PUBLIC_KEY is already set (e.g., in CI/CD)
     if env::var("CARGO_PACKAGER_PUBLIC_KEY").is_err() {
         // If not set, try to read from file
@@ -35,9 +38,9 @@ fn main() {
         println!("cargo:rustc-env=CARGO_PACKAGER_PUBLIC_KEY={}", pubkey);
     }
 
-    // For Windows, we need to embed resources
+    // For Windows, embed the application icon and version info from the resource file
     #[cfg(target_os = "windows")]
     {
-        // This is handled by embed-resource crate in Cargo.toml
+        embed_resource::compile("resources/windows/app.rc", embed_resource::NONE);
     }
 }
