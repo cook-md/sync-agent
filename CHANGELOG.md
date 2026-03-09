@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.12](https://github.com/cook-md/sync-agent/compare/v0.7.11...v0.7.12) (2026-03-09)
+
+
+### Bug Fixes
+
+* Linux tray menu not updating status and auth state ([906f5ce](https://github.com/cook-md/sync-agent/commit/906f5ceb86b47efb83b80c3ab1b444b2238aa967))
+
 ## [0.7.11](https://github.com/cook-md/sync-agent/compare/v0.7.10...v0.7.11) (2026-03-09)
 
 
