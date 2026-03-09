@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.10](https://github.com/cook-md/sync-agent/compare/v0.7.9...v0.7.10) (2026-03-09)
+
+
+### Bug Fixes
+
+* Windows icon, auto-start, and update signature verification ([d8f73f3](https://github.com/cook-md/sync-agent/commit/d8f73f382696ab009b52fb46c6fd98eb5503bfc1))
+
 ## [0.7.9](https://github.com/cook-md/sync-agent/compare/v0.7.8...v0.7.9) (2026-03-09)
 
 
