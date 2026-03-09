@@ -199,7 +199,9 @@ impl TrayState {
             }
             TrayEvent::About => {
                 let log_file_path = self.config.paths().log_file.clone();
-                super::about::show_about_dialog(&log_file_path);
+                std::thread::spawn(move || {
+                    super::about::show_about_dialog(&log_file_path);
+                });
             }
             TrayEvent::ToggleAutoStart => {
                 let platform = crate::platform::get_platform();
@@ -519,12 +521,18 @@ impl SystemTray {
 
     fn start_status_updater(&self) {
         let sync_manager = Arc::clone(&self.state.sync_manager);
+        let auth_manager = Arc::clone(&self.state.auth_manager);
+        let config = Arc::clone(&self.state.config);
         let status_arc = Arc::clone(&self.state.status);
         let status_text_arc = Arc::clone(&self.state.status_text);
+        let user_email_arc = Arc::clone(&self.state.user_email);
+        let is_logged_in_arc = Arc::clone(&self.state.is_logged_in);
+        let folder_path_arc = Arc::clone(&self.state.folder_path);
         let shutdown_signal = Arc::clone(&self.state.shutdown_signal);
 
         std::thread::spawn(move || {
             while !shutdown_signal.load(Ordering::Relaxed) {
+                // Update sync status
                 let state = sync_manager.state();
                 let status = state.lock().unwrap().status;
                 let mut current_status = status_arc.lock().unwrap();
@@ -543,6 +551,20 @@ impl SystemTray {
 
                     *status_text_arc.lock().unwrap() = text.to_string();
                 }
+                drop(current_status);
+
+                // Update auth state from auth manager
+                if let Some(session) = auth_manager.get_session() {
+                    *user_email_arc.lock().unwrap() = session.email.clone();
+                    *is_logged_in_arc.lock().unwrap() = true;
+                } else {
+                    *user_email_arc.lock().unwrap() = None;
+                    *is_logged_in_arc.lock().unwrap() = false;
+                }
+
+                // Update folder path from config
+                let recipes_dir = config.settings().lock().unwrap().recipes_dir.clone();
+                *folder_path_arc.lock().unwrap() = recipes_dir.map(|p| p.display().to_string());
 
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
