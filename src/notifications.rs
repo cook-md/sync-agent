@@ -1,27 +1,37 @@
 use crate::error::{Result, SyncError};
 use log::error;
+use notify_rust::Notification;
 
 #[cfg(target_os = "macos")]
-use notify_rust::Notification;
+use std::sync::Once;
 
-#[cfg(not(target_os = "macos"))]
-use notify_rust::Notification;
+#[cfg(target_os = "macos")]
+static MACOS_APP_INIT: Once = Once::new();
+
+#[cfg(target_os = "macos")]
+fn ensure_macos_application() {
+    MACOS_APP_INIT.call_once(|| {
+        // Must set the bundle identifier before sending any notification on macOS.
+        // Without this, mac-notification-sys tries to look up an app called "use_default"
+        // which triggers a macOS "Choose Application" dialog.
+        if let Err(e) = notify_rust::set_application("com.cook.sync-agent") {
+            error!("Failed to set macOS notification application: {}", e);
+        }
+    });
+}
 
 /// Show a simple notification with title and message
 pub fn show_notification(title: &str, message: &str) -> Result<()> {
     #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
     {
+        #[cfg(target_os = "macos")]
+        ensure_macos_application();
+
         let mut notification = Notification::new();
         notification
             .summary(title)
             .body(message)
             .appname("Cook Sync");
-
-        #[cfg(target_os = "macos")]
-        {
-            // On macOS, we don't need a subtitle - title is already "Cook Sync"
-            // The app icon is set via the bundle identifier
-        }
 
         notification.show().map_err(|e| {
             error!("Failed to show notification: {}", e);
