@@ -1,5 +1,6 @@
 use log::error;
-use rfd::MessageDialog;
+#[cfg(target_os = "linux")]
+use log::{info, warn};
 
 pub fn show_about_dialog(log_file_path: &std::path::Path) {
     let version = env!("CARGO_PKG_VERSION");
@@ -15,27 +16,94 @@ pub fn show_about_dialog(log_file_path: &std::path::Path) {
         "Not created"
     };
 
-    // Create the dialog content with options
     let message = format!(
         "Cook Sync v{version}\n\n\
         © 2025 Cooklang\n\n\
         Log status: {log_status}\n\
-        Log file: {log_path_str}\n\n\
+        Log file: {log_path_str}"
+    );
+
+    let open_logs_message = format!(
+        "{message}\n\n\
         Would you like to open the logs folder?"
     );
 
-    // Use rfd for cross-platform native dialogs with Yes/No buttons
-    let dialog = MessageDialog::new()
-        .set_title("About Cook Sync")
-        .set_description(&message)
-        .set_buttons(rfd::MessageButtons::YesNo);
+    // On Linux, rfd::MessageDialog requires GTK to be initialized, but the
+    // Linux tray uses ksni (D-Bus based, no GTK). Use zenity/kdialog instead.
+    #[cfg(target_os = "linux")]
+    {
+        if show_linux_dialog(&open_logs_message, log_file_path) {
+            return;
+        }
+        // Fallback: show a notification with the about info
+        warn!("No dialog tool available (zenity/kdialog), falling back to notification");
+        let _ = crate::notifications::show_notification("About Cook Sync", &message);
+        return;
+    }
 
-    let result = dialog.show();
+    #[cfg(not(target_os = "linux"))]
+    {
+        use rfd::MessageDialog;
 
-    // If user clicked "Yes", open the log directory
-    if result == rfd::MessageDialogResult::Yes {
-        if let Err(e) = open::that(log_file_path.parent().unwrap_or(log_file_path)) {
-            error!("Failed to open logs directory: {e}");
+        let dialog = MessageDialog::new()
+            .set_title("About Cook Sync")
+            .set_description(&open_logs_message)
+            .set_buttons(rfd::MessageButtons::YesNo);
+
+        let result = dialog.show();
+
+        if result == rfd::MessageDialogResult::Yes {
+            open_logs_dir(log_file_path);
         }
     }
+}
+
+fn open_logs_dir(log_file_path: &std::path::Path) {
+    if let Err(e) = open::that(log_file_path.parent().unwrap_or(log_file_path)) {
+        error!("Failed to open logs directory: {e}");
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn show_linux_dialog(message: &str, log_file_path: &std::path::Path) -> bool {
+    // Try zenity first (GNOME/GTK desktops)
+    if let Ok(output) = std::process::Command::new("zenity")
+        .args([
+            "--question",
+            "--title=About Cook Sync",
+            &format!("--text={message}"),
+            "--ok-label=Open Logs",
+            "--cancel-label=Close",
+        ])
+        .output()
+    {
+        info!("About dialog shown via zenity");
+        if output.status.success() {
+            open_logs_dir(log_file_path);
+        }
+        return true;
+    }
+
+    // Try kdialog (KDE desktops)
+    if let Ok(output) = std::process::Command::new("kdialog")
+        .args([
+            "--title",
+            "About Cook Sync",
+            "--yesno",
+            message,
+            "--yes-label",
+            "Open Logs",
+            "--no-label",
+            "Close",
+        ])
+        .output()
+    {
+        info!("About dialog shown via kdialog");
+        if output.status.success() {
+            open_logs_dir(log_file_path);
+        }
+        return true;
+    }
+
+    false
 }
