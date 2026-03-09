@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.11](https://github.com/cook-md/sync-agent/compare/v0.7.10...v0.7.11) (2026-03-09)
+
+
+### Bug Fixes
+
+* Linux About dialog not showing due to missing GTK context ([947c00e](https://github.com/cook-md/sync-agent/commit/947c00e91a5615a3ca7e976425376a254f0fc532))
+* Windows CLI commands produce no output due to missing console ([a97e1b6](https://github.com/cook-md/sync-agent/commit/a97e1b697b2f1e59379017ff0ed8ccf12aa0a5f7))
+
 ## [0.7.10](https://github.com/cook-md/sync-agent/compare/v0.7.9...v0.7.10) (2026-03-09)
 
 
