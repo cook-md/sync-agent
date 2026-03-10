@@ -264,16 +264,29 @@ jobs:
             ARCH="aarch64"
           fi
 
-          # Find the .app bundle produced by cargo-packager
-          APP_DIR=$(find target/release/bundle -name "*.app" -type d | head -1)
-          if [ -z "$APP_DIR" ]; then
-            echo "ERROR: No .app bundle found in target/release/bundle"
+          # cargo-packager creates the .app, packages it into DMG, then cleans up
+          # the .app. We extract the signed+notarized .app from the DMG to create
+          # the tar.gz update archive.
+          DMG_FILE=$(ls *.dmg 2>/dev/null | head -1)
+          if [ -z "$DMG_FILE" ]; then
+            echo "ERROR: No DMG file found"
             exit 1
           fi
 
-          echo "Creating tar.gz from: $APP_DIR"
+          echo "Extracting .app from DMG: $DMG_FILE"
+          MOUNT_DIR=$(mktemp -d)
+          hdiutil attach "$DMG_FILE" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
+          APP_NAME=$(ls -d "$MOUNT_DIR"/*.app 2>/dev/null | head -1)
+          if [ -z "$APP_NAME" ]; then
+            echo "ERROR: No .app found inside DMG"
+            hdiutil detach "$MOUNT_DIR" -quiet
+            exit 1
+          fi
+
           ARCHIVE_NAME="Cook.Sync_${VERSION}_${ARCH}.app.tar.gz"
-          tar -czf "$ARCHIVE_NAME" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
+          tar -czf "$ARCHIVE_NAME" -C "$MOUNT_DIR" "$(basename "$APP_NAME")"
+          hdiutil detach "$MOUNT_DIR" -quiet
+
           echo "Created: $ARCHIVE_NAME ($(du -h "$ARCHIVE_NAME" | cut -f1))"
 
       - name: Sign update archive (macOS)
