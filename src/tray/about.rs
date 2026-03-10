@@ -71,16 +71,38 @@ fn show_linux_dialog(message: &str, log_file_path: &std::path::Path) -> bool {
             "--question",
             "--title=About Cook Sync",
             &format!("--text={message}"),
+            "--no-markup",
             "--ok-label=Open Logs",
             "--cancel-label=Close",
         ])
         .output()
     {
-        info!("About dialog shown via zenity");
-        if output.status.success() {
-            open_logs_dir(log_file_path);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            warn!("zenity stderr: {}", stderr.trim());
         }
-        return true;
+        // zenity returns 0 for OK/Yes, 1 for Cancel/No, 5 for timeout, -1/other for errors
+        match output.status.code() {
+            Some(0) => {
+                info!("About dialog shown via zenity (user clicked Open Logs)");
+                open_logs_dir(log_file_path);
+                return true;
+            }
+            Some(1) => {
+                info!("About dialog shown via zenity (user clicked Close)");
+                return true;
+            }
+            Some(code) => {
+                warn!(
+                    "zenity exited with unexpected code {}, trying fallback",
+                    code
+                );
+                // Don't return true — fall through to try kdialog or notification
+            }
+            None => {
+                warn!("zenity terminated by signal, trying fallback");
+            }
+        }
     }
 
     // Try kdialog (KDE desktops)
@@ -97,11 +119,30 @@ fn show_linux_dialog(message: &str, log_file_path: &std::path::Path) -> bool {
         ])
         .output()
     {
-        info!("About dialog shown via kdialog");
-        if output.status.success() {
-            open_logs_dir(log_file_path);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if !stderr.is_empty() {
+            warn!("kdialog stderr: {}", stderr.trim());
         }
-        return true;
+        match output.status.code() {
+            Some(0) => {
+                info!("About dialog shown via kdialog (user clicked Open Logs)");
+                open_logs_dir(log_file_path);
+                return true;
+            }
+            Some(1) => {
+                info!("About dialog shown via kdialog (user clicked Close)");
+                return true;
+            }
+            Some(code) => {
+                warn!(
+                    "kdialog exited with unexpected code {}, trying fallback",
+                    code
+                );
+            }
+            None => {
+                warn!("kdialog terminated by signal");
+            }
+        }
     }
 
     false
