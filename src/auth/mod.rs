@@ -199,7 +199,7 @@ impl AuthManager {
             debug!("Token extracted successfully");
 
             // Send success response with styled HTML - show "All Done" directly
-            let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\r\n\
+            let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nAccess-Control-Allow-Origin: *\r\n\r\n\
 <!DOCTYPE html>
 <html>
 <head>
@@ -288,7 +288,7 @@ impl AuthManager {
             debug!("Failed to extract token from request");
 
             // Send error response with styled HTML
-            let response = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\n\r\n\
+            let response = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/html; charset=utf-8\r\nAccess-Control-Allow-Origin: *\r\n\r\n\
 <!DOCTYPE html>
 <html>
 <head>
