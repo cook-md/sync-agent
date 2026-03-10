@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/cook-md/sync-agent/compare/v0.8.1...v0.8.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* hdiutil attach failure when extracting .app from DMG ([a36ea0f](https://github.com/cook-md/sync-agent/commit/a36ea0fd2e9b1fee4f61f121ecba2a09f3fa43ea))
+
 ## [0.8.1](https://github.com/cook-md/sync-agent/compare/v0.8.0...v0.8.1) (2026-03-10)
 
 
