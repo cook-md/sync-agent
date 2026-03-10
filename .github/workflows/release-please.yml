@@ -250,6 +250,61 @@ jobs:
           echo "macOS packages:"
           ls -lh *.dmg *.dmg.sig 2>/dev/null || true
 
+      - name: Create update archive (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          TARGET="${{ matrix.platform.target }}"
+
+          # Determine arch suffix matching cargo-packager convention
+          if [ "$TARGET" = "x86_64-apple-darwin" ]; then
+            ARCH="x64"
+          else
+            ARCH="aarch64"
+          fi
+
+          # Find the .app bundle produced by cargo-packager
+          APP_DIR=$(find target/release/bundle -name "*.app" -type d | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "ERROR: No .app bundle found in target/release/bundle"
+            exit 1
+          fi
+
+          echo "Creating tar.gz from: $APP_DIR"
+          ARCHIVE_NAME="Cook.Sync_${VERSION}_${ARCH}.app.tar.gz"
+          tar -czf "$ARCHIVE_NAME" -C "$(dirname "$APP_DIR")" "$(basename "$APP_DIR")"
+          echo "Created: $ARCHIVE_NAME ($(du -h "$ARCHIVE_NAME" | cut -f1))"
+
+      - name: Sign update archive (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | cut -d'"' -f2)
+          TARGET="${{ matrix.platform.target }}"
+
+          if [ "$TARGET" = "x86_64-apple-darwin" ]; then
+            ARCH="x64"
+          else
+            ARCH="aarch64"
+          fi
+
+          ARCHIVE_NAME="Cook.Sync_${VERSION}_${ARCH}.app.tar.gz"
+
+          if [ -f "$ARCHIVE_NAME" ]; then
+            echo "Signing $ARCHIVE_NAME"
+            cargo packager signer sign "$ARCHIVE_NAME" \
+              --private-key "$CARGO_PACKAGER_SIGN_PRIVATE_KEY" \
+              --password "$CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD"
+            echo "Signature created: ${ARCHIVE_NAME}.sig"
+          else
+            echo "ERROR: Archive not found: $ARCHIVE_NAME"
+            exit 1
+          fi
+        env:
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+
       - name: Prepare release assets
         shell: bash
         run: |
@@ -264,7 +319,7 @@ jobs:
             echo "Found: $file"
             cp -v "$file" release-assets/
             FOUND=1
-          done < <(find . -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -print0 2>/dev/null)
+          done < <(find . -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -print0 2>/dev/null)
 
           if [ $FOUND -eq 0 ]; then
             echo "❌ ERROR: No package files found in project root"
@@ -337,7 +392,7 @@ jobs:
         run: |
           mkdir -p release-assets
           # Copy all package files (now in root of each artifact directory)
-          find artifacts -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -exec cp {} release-assets/ \;
+          find artifacts -type f \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.msi" -o -name "*.sig" \) -exec cp {} release-assets/ \;
           # Copy manifest
           cp artifacts/manifest/manifest.json release-assets/
           echo "Release assets prepared:"

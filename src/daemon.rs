@@ -69,25 +69,17 @@ impl Daemon {
                 info!("Checking for updates in background (auto-update enabled)");
                 match crate::updater::check_for_updates(true).await {
                     Ok(Some(version)) => {
-                        info!(
-                            "Update to version {} downloaded, will install on restart",
-                            version
+                        info!("Update to version {} installed successfully", version);
+
+                        let _ = crate::notifications::show_notification(
+                            "Cook Sync Updated",
+                            &format!("Updated to version {}. Restarting...", version),
                         );
 
-                        #[cfg(target_os = "macos")]
-                        let message = format!(
-                            "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
-                            version
-                        );
+                        // Brief delay so user can see the notification
+                        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-                        #[cfg(not(target_os = "macos"))]
-                        let message = format!(
-                            "Update to version {} has been downloaded and will be installed on next restart.",
-                            version
-                        );
-
-                        let _ =
-                            crate::notifications::show_notification("Cook Sync Update", &message);
+                        crate::updater::restart_app();
                     }
                     Ok(None) => {
                         info!("No updates available");

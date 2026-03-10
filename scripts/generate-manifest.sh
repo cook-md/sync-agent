@@ -16,19 +16,20 @@ echo "Artifacts directory: ${ARTIFACTS_DIR}"
 read_signature() {
     local pattern="$1"
     local sig_file=$(find "${ARTIFACTS_DIR}" -name "${pattern}" | head -1)
-    
+
     if [ -z "$sig_file" ]; then
         echo "Warning: Signature file not found for pattern: ${pattern}" >&2
         echo "SIG_NOT_FOUND"
         return
     fi
-    
+
     cat "$sig_file"
 }
 
-# Find signature files (cargo-packager uses underscores in filenames)
-DARWIN_X64_SIG=$(read_signature "*_x64.dmg.sig")
-DARWIN_ARM64_SIG=$(read_signature "*_aarch64.dmg.sig")
+# Find signature files
+# macOS: use tar.gz signatures for auto-updater (DMG is for first-time installs only)
+DARWIN_X64_SIG=$(read_signature "*_x64.app.tar.gz.sig")
+DARWIN_ARM64_SIG=$(read_signature "*_aarch64.app.tar.gz.sig")
 LINUX_X64_SIG=$(read_signature "*_x86_64.AppImage.sig")
 WINDOWS_X64_NSIS_SIG=$(read_signature "*_x64-setup.exe.sig")
 WINDOWS_X64_MSI_SIG=$(read_signature "*.msi.sig")
@@ -45,26 +46,26 @@ EOF_MANIFEST
 # Add platform entries (only if signature found)
 FIRST_ENTRY=true
 
-# macOS x86_64
+# macOS x86_64 (tar.gz for seamless auto-update)
 if [ "$DARWIN_X64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_X64_SIG" ]; then
     [ "$FIRST_ENTRY" = false ] && echo "," >> manifest.json
     cat >> manifest.json <<EOF_ENTRY
     "macos-x86_64": {
       "signature": "${DARWIN_X64_SIG}",
-      "url": "${BASE_URL}/Cook.Sync_${VERSION}_x64.dmg",
+      "url": "${BASE_URL}/Cook.Sync_${VERSION}_x64.app.tar.gz",
       "format": "app"
     }
 EOF_ENTRY
     FIRST_ENTRY=false
 fi
 
-# macOS ARM64
+# macOS ARM64 (tar.gz for seamless auto-update)
 if [ "$DARWIN_ARM64_SIG" != "SIG_NOT_FOUND" ] && [ -n "$DARWIN_ARM64_SIG" ]; then
     [ "$FIRST_ENTRY" = false ] && echo "," >> manifest.json
     cat >> manifest.json <<EOF_ENTRY
     "macos-aarch64": {
       "signature": "${DARWIN_ARM64_SIG}",
-      "url": "${BASE_URL}/Cook.Sync_${VERSION}_aarch64.dmg",
+      "url": "${BASE_URL}/Cook.Sync_${VERSION}_aarch64.app.tar.gz",
       "format": "app"
     }
 EOF_ENTRY

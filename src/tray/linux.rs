@@ -162,12 +162,18 @@ impl TrayState {
                             Ok(Some(version)) => {
                                 if auto_update {
                                     let _ = crate::notifications::show_notification(
-                                        "Cook Sync Update",
+                                        "Cook Sync Updated",
                                         &format!(
-                                            "Updated to version {}. Restart to apply.",
+                                            "Updated to version {}. Restarting...",
                                             version
                                         ),
                                     );
+
+                                    // Brief delay so user can see the notification
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(2))
+                                        .await;
+
+                                    crate::updater::restart_app();
                                 } else {
                                     let _ = crate::notifications::show_notification(
                                         "Cook Sync Update Available",

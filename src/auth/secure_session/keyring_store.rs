@@ -1,5 +1,7 @@
 use crate::error::Result;
-use log::{debug, error};
+use log::debug;
+#[cfg(not(target_os = "linux"))]
+use log::error;
 #[cfg(test)]
 use std::collections::HashMap;
 #[cfg(test)]

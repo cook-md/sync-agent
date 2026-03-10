@@ -605,17 +605,8 @@ async fn check_update() -> Result<()> {
     match updater::check_for_updates(auto_update).await {
         Ok(Some(version)) => {
             if auto_update {
-                #[cfg(target_os = "macos")]
-                println!(
-                    "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
-                    version
-                );
-
-                #[cfg(not(target_os = "macos"))]
-                println!(
-                    "Update to version {} downloaded and will be installed on next restart",
-                    version
-                );
+                println!("Updated to version {}. Restarting...", version);
+                updater::restart_app();
             } else {
                 println!("Update available: version {}", version);
                 println!("Run with --auto-update to install automatically");
@@ -867,8 +858,45 @@ async fn reset_all_data(skip_confirmation: bool) -> Result<()> {
 /// CLI commands (reset, status, config, etc.) can print output and read input.
 #[cfg(windows)]
 fn attach_parent_console() {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
     unsafe {
         // ATTACH_PARENT_PROCESS = u32::MAX (-1 as u32)
-        winapi::um::wincon::AttachConsole(u32::MAX);
+        if winapi::um::wincon::AttachConsole(u32::MAX) == 0 {
+            return; // Not launched from a console
+        }
+
+        // AttachConsole alone does not redirect the process's standard handles.
+        // Reopen stdin via CONIN$ so io::stdin().read_line() works.
+        let conin: Vec<u16> = OsStr::new("CONIN$").encode_wide().chain(Some(0)).collect();
+        let h = winapi::um::fileapi::CreateFileW(
+            conin.as_ptr(),
+            winapi::um::winnt::GENERIC_READ | winapi::um::winnt::GENERIC_WRITE,
+            winapi::um::winnt::FILE_SHARE_READ | winapi::um::winnt::FILE_SHARE_WRITE,
+            std::ptr::null_mut(),
+            winapi::um::fileapi::OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        );
+        if h != winapi::um::handleapi::INVALID_HANDLE_VALUE {
+            winapi::um::processenv::SetStdHandle(winapi::um::winbase::STD_INPUT_HANDLE, h);
+        }
+
+        // Reopen stdout/stderr via CONOUT$ for the attached console.
+        let conout: Vec<u16> = OsStr::new("CONOUT$").encode_wide().chain(Some(0)).collect();
+        let h = winapi::um::fileapi::CreateFileW(
+            conout.as_ptr(),
+            winapi::um::winnt::GENERIC_READ | winapi::um::winnt::GENERIC_WRITE,
+            winapi::um::winnt::FILE_SHARE_READ | winapi::um::winnt::FILE_SHARE_WRITE,
+            std::ptr::null_mut(),
+            winapi::um::fileapi::OPEN_EXISTING,
+            0,
+            std::ptr::null_mut(),
+        );
+        if h != winapi::um::handleapi::INVALID_HANDLE_VALUE {
+            winapi::um::processenv::SetStdHandle(winapi::um::winbase::STD_OUTPUT_HANDLE, h);
+            winapi::um::processenv::SetStdHandle(winapi::um::winbase::STD_ERROR_HANDLE, h);
+        }
     }
 }
