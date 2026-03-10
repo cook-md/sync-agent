@@ -267,25 +267,36 @@ jobs:
           # cargo-packager creates the .app, packages it into DMG, then cleans up
           # the .app. We extract the signed+notarized .app from the DMG to create
           # the tar.gz update archive.
-          DMG_FILE=$(ls *.dmg 2>/dev/null | head -1)
+          DMG_FILE=$(find . -maxdepth 1 -name "*.dmg" -not -name "rw.*" | head -1)
           if [ -z "$DMG_FILE" ]; then
             echo "ERROR: No DMG file found"
+            ls -la *.dmg 2>/dev/null || echo "No .dmg files in current directory"
             exit 1
           fi
 
           echo "Extracting .app from DMG: $DMG_FILE"
-          MOUNT_DIR=$(mktemp -d)
-          hdiutil attach "$DMG_FILE" -mountpoint "$MOUNT_DIR" -nobrowse -quiet
-          APP_NAME=$(ls -d "$MOUNT_DIR"/*.app 2>/dev/null | head -1)
+          # Let hdiutil choose its own mount point (more reliable on CI)
+          MOUNT_OUTPUT=$(hdiutil attach "$DMG_FILE" -nobrowse 2>&1) || {
+            echo "ERROR: hdiutil attach failed:"
+            echo "$MOUNT_OUTPUT"
+            exit 1
+          }
+          # hdiutil prints mount info as last line: /dev/diskN  Apple_HFS  /Volumes/Name
+          MOUNT_DIR=$(echo "$MOUNT_OUTPUT" | tail -1 | awk -F'\t' '{print $NF}')
+          echo "Mounted at: $MOUNT_DIR"
+
+          APP_NAME=$(find "$MOUNT_DIR" -maxdepth 1 -name "*.app" -type d | head -1)
           if [ -z "$APP_NAME" ]; then
             echo "ERROR: No .app found inside DMG"
-            hdiutil detach "$MOUNT_DIR" -quiet
+            ls -la "$MOUNT_DIR"/
+            hdiutil detach "$MOUNT_DIR" 2>/dev/null || true
             exit 1
           fi
 
+          echo "Found app: $APP_NAME"
           ARCHIVE_NAME="Cook.Sync_${VERSION}_${ARCH}.app.tar.gz"
           tar -czf "$ARCHIVE_NAME" -C "$MOUNT_DIR" "$(basename "$APP_NAME")"
-          hdiutil detach "$MOUNT_DIR" -quiet
+          hdiutil detach "$MOUNT_DIR" 2>/dev/null || true
 
           echo "Created: $ARCHIVE_NAME ($(du -h "$ARCHIVE_NAME" | cut -f1))"
 
