@@ -104,6 +104,10 @@ async fn main() -> Result<()> {
     // Initialize Sentry for error tracking
     sentry_integration::init_sentry();
 
+    // Relocate AppImage from transient locations on first launch (Linux only)
+    #[cfg(target_os = "linux")]
+    check_and_relocate_appimage()?;
+
     // Auto-install desktop integration on first launch (Linux AppImage only)
     #[cfg(target_os = "linux")]
     check_and_auto_install()?;
@@ -707,6 +711,31 @@ fn check_and_auto_install() -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
+fn check_and_relocate_appimage() -> Result<()> {
+    use platform::linux::desktop_integration;
+
+    if !is_running_from_appimage() {
+        return Ok(());
+    }
+
+    let args: Vec<String> = std::env::args().collect();
+    if args
+        .iter()
+        .any(|arg| arg == "uninstall" || arg == "install")
+    {
+        return Ok(());
+    }
+
+    match desktop_integration::check_and_relocate() {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            error!("AppImage relocation check failed: {}", e);
+            Ok(())
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 fn is_running_from_appimage() -> bool {
     // Check APPIMAGE environment variable
     if std::env::var("APPIMAGE").is_ok() {
@@ -822,6 +851,12 @@ async fn reset_all_data(skip_confirmation: bool) -> Result<()> {
         if let Err(e) = std::fs::remove_file(&paths.pid_file) {
             errors.push(format!("Failed to delete PID file: {}", e));
         }
+    }
+
+    // Delete relocation-declined marker (Linux AppImage)
+    let relocation_marker = paths.config_dir.join("relocation-declined");
+    if relocation_marker.exists() {
+        let _ = std::fs::remove_file(&relocation_marker);
     }
 
     // Try to remove directories if empty

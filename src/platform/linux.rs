@@ -12,7 +12,7 @@ use std::time::Duration;
 pub struct LinuxIntegration;
 
 // Desktop integration module for AppImage
-mod desktop_integration {
+pub mod desktop_integration {
     use super::*;
 
     /// Check if we're running from an AppImage
@@ -31,6 +31,155 @@ mod desktop_integration {
         }
 
         false
+    }
+
+    /// Check if the AppImage is in a transient location (Downloads, Desktop, /tmp)
+    fn is_transient_location(appimage_path: &Path) -> bool {
+        let path_str = appimage_path.to_string_lossy();
+
+        // /tmp/.mount_* is the AppImage runtime mount point, not a transient location
+        if path_str.starts_with("/tmp/.mount_") {
+            return false;
+        }
+
+        // Check /tmp/
+        if path_str.starts_with("/tmp/") {
+            return true;
+        }
+
+        // Check ~/Downloads/ and ~/Desktop/
+        if let Some(home) = dirs::home_dir() {
+            let downloads = home.join("Downloads");
+            let desktop = home.join("Desktop");
+
+            if appimage_path.starts_with(&downloads) || appimage_path.starts_with(&desktop) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// Get the path to the relocation-declined marker file
+    fn relocation_declined_path() -> Option<PathBuf> {
+        dirs::config_dir().map(|d| d.join("cook-sync").join("relocation-declined"))
+    }
+
+    /// Check if the user has previously declined relocation
+    fn relocation_declined() -> bool {
+        relocation_declined_path()
+            .map(|p| p.exists())
+            .unwrap_or(false)
+    }
+
+    /// Create the marker file indicating the user declined relocation
+    fn mark_relocation_declined() {
+        if let Some(path) = relocation_declined_path() {
+            if let Some(parent) = path.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(&path, "declined");
+        }
+    }
+
+    /// Show a zenity dialog asking the user if they want to relocate the AppImage
+    fn show_relocation_dialog() -> bool {
+        match std::process::Command::new("zenity")
+            .args([
+                "--question",
+                "--title=Move Cook Sync?",
+                "--text=Cook Sync is running from a temporary location.\n\nMove to ~/Applications/ for permanent installation?",
+                "--ok-label=Yes, move it",
+                "--cancel-label=No thanks",
+                "--no-markup",
+            ])
+            .status()
+        {
+            Ok(status) => status.success(),
+            Err(e) => {
+                debug!("zenity not found or failed to run: {}", e);
+                false
+            }
+        }
+    }
+
+    /// Move the AppImage from source to ~/Applications/cook-sync.AppImage
+    fn move_appimage(source: &Path) -> Result<PathBuf> {
+        let target_dir = dirs::home_dir()
+            .ok_or_else(|| SyncError::Platform("Cannot determine home directory".into()))?
+            .join("Applications");
+
+        fs::create_dir_all(&target_dir)
+            .map_err(|e| SyncError::Platform(format!("Failed to create ~/Applications/: {}", e)))?;
+
+        let target = target_dir.join("cook-sync.AppImage");
+
+        // Try atomic rename first (works on same filesystem)
+        if fs::rename(source, &target).is_ok() {
+            info!("Moved AppImage to {} (rename)", target.display());
+            return Ok(target);
+        }
+
+        // Fallback: copy + remove (cross-filesystem)
+        fs::copy(source, &target).map_err(|e| {
+            SyncError::Platform(format!(
+                "Failed to copy AppImage to {}: {}",
+                target.display(),
+                e
+            ))
+        })?;
+        // Delete original (best effort — copy succeeded so the new location works)
+        if let Err(e) = fs::remove_file(source) {
+            error!(
+                "AppImage copied to {} but failed to remove original {}: {}",
+                target.display(),
+                source.display(),
+                e
+            );
+        }
+        info!("Moved AppImage to {} (copy+remove)", target.display());
+
+        Ok(target)
+    }
+
+    /// Check if the AppImage is in a transient location and offer to relocate it.
+    /// If the user accepts, moves the file and re-execs from the new location.
+    pub fn check_and_relocate() -> Result<()> {
+        // Get AppImage path; return Ok if not running from AppImage
+        let appimage_path = match get_appimage_path() {
+            Ok(p) => p,
+            Err(_) => return Ok(()),
+        };
+
+        if !is_transient_location(&appimage_path) {
+            return Ok(());
+        }
+
+        if relocation_declined() {
+            return Ok(());
+        }
+
+        if !show_relocation_dialog() {
+            mark_relocation_declined();
+            return Ok(());
+        }
+
+        let new_path = match move_appimage(&appimage_path) {
+            Ok(p) => p,
+            Err(e) => {
+                error!("Failed to move AppImage: {}", e);
+                return Ok(());
+            }
+        };
+
+        // Re-exec from the new location with the same arguments
+        info!("Re-executing from {}", new_path.display());
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let err = std::os::unix::process::CommandExt::exec(
+            std::process::Command::new(&new_path).args(&args),
+        );
+        error!("Failed to re-exec from new location: {}", err);
+        Ok(())
     }
 
     /// Get the AppImage path from environment or current exe
