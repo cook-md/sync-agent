@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/cook-md/sync-agent/compare/v0.8.2...v0.8.3) (2026-03-10)
+
+
+### Bug Fixes
+
+* accept DMG EULA when extracting .app for update archive ([f70401d](https://github.com/cook-md/sync-agent/commit/f70401d46cd9333a8833f07d17daa94c6a51cdd5))
+
 ## [0.8.2](https://github.com/cook-md/sync-agent/compare/v0.8.1...v0.8.2) (2026-03-10)
 
 
