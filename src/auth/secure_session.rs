@@ -4,7 +4,7 @@ use log::{error, info};
 use serde::{Deserialize, Serialize};
 
 mod keyring_store;
-use keyring_store::{KeyringStore, SystemKeyring};
+use keyring_store::KeyringStore;
 
 #[cfg(test)]
 use keyring_store::MockKeyring;
@@ -41,12 +41,13 @@ impl SecureSession {
     }
 
     pub fn load() -> Result<Option<Self>> {
-        info!("Loading session from keyring");
-        let result = Self::load_with_store(&SystemKeyring);
+        info!("Loading session from secure store");
+        let store = keyring_store::default_store();
+        let result = Self::load_with_store(&store);
         match &result {
-            Ok(Some(_)) => info!("Session loaded successfully from keyring"),
-            Ok(None) => info!("No session found in keyring"),
-            Err(e) => error!("Failed to load session from keyring: {e}"),
+            Ok(Some(_)) => info!("Session loaded successfully from secure store"),
+            Ok(None) => info!("No session found in secure store"),
+            Err(e) => error!("Failed to load session from secure store: {e}"),
         }
         result
     }
@@ -90,11 +91,12 @@ impl SecureSession {
     }
 
     pub fn save(&self) -> Result<()> {
-        info!("Saving session to keyring");
-        let result = self.save_with_store(&SystemKeyring);
+        info!("Saving session to secure store");
+        let store = keyring_store::default_store();
+        let result = self.save_with_store(&store);
         match &result {
-            Ok(_) => info!("Session saved successfully to keyring"),
-            Err(e) => error!("Failed to save session to keyring: {e}"),
+            Ok(_) => info!("Session saved successfully to secure store"),
+            Err(e) => error!("Failed to save session to secure store: {e}"),
         }
         result
     }
@@ -115,7 +117,8 @@ impl SecureSession {
     }
 
     pub fn delete() -> Result<()> {
-        Self::delete_with_store(&SystemKeyring)
+        let store = keyring_store::default_store();
+        Self::delete_with_store(&store)
     }
 
     fn delete_with_store(store: &dyn KeyringStore) -> Result<()> {

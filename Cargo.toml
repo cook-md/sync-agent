@@ -99,12 +99,11 @@ tray-icon = "0.21"
 winit = "0.30"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "3", features = ["linux-native-sync-persistent"] }
 # Linux uses ksni for system tray (no GTK event loop required)
 ksni = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "shellapi", "winbase", "wincon"] }
+winapi = { version = "0.3", features = ["winuser", "shellapi", "winbase", "wincon", "fileapi", "processenv", "handleapi", "winnt"] }
 windows-service = "0.8"
 winreg = "0.55"
 keyring = { version = "3", features = ["windows-native"] }

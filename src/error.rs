@@ -36,6 +36,7 @@ pub enum SyncError {
     #[error("Platform error: {0}")]
     Platform(String),
 
+    #[cfg(not(target_os = "linux"))]
     #[error("Keyring error: {0}")]
     Keyring(#[from] keyring::Error),
 
