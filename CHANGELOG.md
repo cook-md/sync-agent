@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/cook-md/sync-agent/compare/v0.7.13...v0.8.0) (2026-03-10)
+
+
+### Features
+
+* seamless self-update with automatic restart ([d212972](https://github.com/cook-md/sync-agent/commit/d212972e4711cabbcb422d90d2ada133cf48a7be))
+* seamless self-update with automatic restart on all platforms ([92bb908](https://github.com/cook-md/sync-agent/commit/92bb9082b04f10efa96cfc0b49cae4c1a236b795))
+
+
+### Bug Fixes
+
+* add CORS headers to login callback HTTP responses ([db0adc1](https://github.com/cook-md/sync-agent/commit/db0adc12763edab9ec8507f91ab2d673bc2dbee0))
+* unused log::error import on Linux in keyring_store ([7a4ac6f](https://github.com/cook-md/sync-agent/commit/7a4ac6ff7f84dd0f80c9be5699a2616ce1009084))
+
 ## [0.7.13](https://github.com/cook-md/sync-agent/compare/v0.7.12...v0.7.13) (2026-03-10)
 
 
