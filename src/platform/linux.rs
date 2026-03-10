@@ -88,7 +88,7 @@ pub mod desktop_integration {
             .args([
                 "--question",
                 "--title=Move Cook Sync?",
-                "--text=Cook Sync is running from your Downloads folder.\n\nMove to ~/Applications/ for permanent installation?",
+                "--text=Cook Sync is running from a temporary location.\n\nMove to ~/Applications/ for permanent installation?",
                 "--ok-label=Yes, move it",
                 "--cancel-label=No thanks",
                 "--no-markup",
@@ -128,13 +128,15 @@ pub mod desktop_integration {
                 e
             ))
         })?;
-        fs::remove_file(source).map_err(|e| {
-            SyncError::Platform(format!(
-                "Failed to remove original AppImage at {}: {}",
+        // Delete original (best effort — copy succeeded so the new location works)
+        if let Err(e) = fs::remove_file(source) {
+            error!(
+                "AppImage copied to {} but failed to remove original {}: {}",
+                target.display(),
                 source.display(),
                 e
-            ))
-        })?;
+            );
+        }
         info!("Moved AppImage to {} (copy+remove)", target.display());
 
         Ok(target)
