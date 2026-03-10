@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.13](https://github.com/cook-md/sync-agent/compare/v0.7.12...v0.7.13) (2026-03-10)
+
+
+### Bug Fixes
+
+* Linux about dialog not opening due to silent zenity failures ([624a226](https://github.com/cook-md/sync-agent/commit/624a226958005b0167551988a66d51d8742434f8))
+* remove needless return flagged by newer clippy ([82c85c2](https://github.com/cook-md/sync-agent/commit/82c85c29a834415f39398e74546436e20ac02f8c))
+* use file-based session storage on Linux instead of keyring ([7491209](https://github.com/cook-md/sync-agent/commit/74912098c4f1793717e554185286bd6fda880b14))
+
 ## [0.7.12](https://github.com/cook-md/sync-agent/compare/v0.7.11...v0.7.12) (2026-03-09)
 
 
