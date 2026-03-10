@@ -282,22 +282,19 @@ impl SystemTray {
                             match crate::updater::check_for_updates(auto_update).await {
                                 Ok(Some(version)) => {
                                     if auto_update {
-                                        #[cfg(target_os = "macos")]
-                                        let message = format!(
-                                            "Update to version {} has been downloaded. Please drag Cook Sync to Applications to complete installation.",
-                                            version
-                                        );
-
-                                        #[cfg(not(target_os = "macos"))]
-                                        let message = format!(
-                                            "Update to version {} has been downloaded and will be installed on next restart.",
-                                            version
-                                        );
-
                                         let _ = crate::notifications::show_notification(
-                                            "Cook Sync Update",
-                                            &message,
+                                            "Cook Sync Updated",
+                                            &format!(
+                                                "Updated to version {}. Restarting...",
+                                                version
+                                            ),
                                         );
+
+                                        // Brief delay so user can see the notification
+                                        tokio::time::sleep(tokio::time::Duration::from_secs(2))
+                                            .await;
+
+                                        crate::updater::restart_app();
                                     } else {
                                         let _ = crate::notifications::show_notification(
                                             "Cook Sync Update Available",

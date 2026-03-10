@@ -59,72 +59,23 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
             if auto_install {
                 info!("Auto-install enabled, downloading and installing update...");
 
-                // On macOS, DMG files cannot be automatically installed.
-                // We download and open the DMG, then the user completes installation manually.
-                #[cfg(target_os = "macos")]
-                {
-                    // Run download in blocking thread
-                    let download_result = tokio::task::spawn_blocking(move || update.download())
+                // Use download_and_install() on all platforms:
+                // - macOS: replaces .app bundle atomically (expects tar.gz of .app)
+                // - Linux: replaces AppImage binary in-place
+                // - Windows: launches NSIS installer
+                let install_result =
+                    tokio::task::spawn_blocking(move || update.download_and_install())
                         .await
-                        .map_err(|e| SyncError::Other(format!("Download task failed: {}", e)))?;
+                        .map_err(|e| SyncError::Other(format!("Install task failed: {}", e)))?;
 
-                    match download_result {
-                        Ok(bytes) => {
-                            info!("Update downloaded ({} bytes)", bytes.len());
-
-                            // Write to a temporary file
-                            let temp_dir = std::env::temp_dir();
-                            let dmg_path =
-                                temp_dir.join(format!("cook-sync-{}.dmg", version_string));
-
-                            if let Err(e) = std::fs::write(&dmg_path, &bytes) {
-                                error!("Failed to write DMG file: {}", e);
-                                return Err(SyncError::Update(format!(
-                                    "Failed to save update file: {}",
-                                    e
-                                )));
-                            }
-
-                            info!("Update saved to: {:?}", dmg_path);
-
-                            // Open the DMG file with the default macOS handler
-                            if let Err(e) = open::that(&dmg_path) {
-                                error!("Failed to open DMG: {}", e);
-                                return Err(SyncError::Update(format!(
-                                    "Downloaded update but failed to open DMG: {}",
-                                    e
-                                )));
-                            }
-
-                            info!("DMG opened successfully - user will complete installation");
-                            Ok(Some(version_string))
-                        }
-                        Err(e) => {
-                            error!("Failed to download update: {}", e);
-                            Err(SyncError::Update(format!("Download failed: {}", e)))
-                        }
+                match install_result {
+                    Ok(()) => {
+                        info!("Update downloaded and installed successfully");
+                        Ok(Some(version_string))
                     }
-                }
-
-                // On Linux and Windows, use automatic installation
-                #[cfg(not(target_os = "macos"))]
-                {
-                    // Run download and install in blocking thread
-                    let install_result =
-                        tokio::task::spawn_blocking(move || update.download_and_install())
-                            .await
-                            .map_err(|e| SyncError::Other(format!("Install task failed: {}", e)))?;
-
-                    match install_result {
-                        Ok(()) => {
-                            info!("Update downloaded and installed successfully");
-                            // Note: The updater will restart the application automatically
-                            Ok(Some(version_string))
-                        }
-                        Err(e) => {
-                            error!("Failed to download/install update: {}", e);
-                            Err(SyncError::Update(format!("Update failed: {}", e)))
-                        }
+                    Err(e) => {
+                        error!("Failed to download/install update: {}", e);
+                        Err(SyncError::Update(format!("Update failed: {}", e)))
                     }
                 }
             } else {
@@ -140,6 +91,62 @@ pub async fn check_for_updates(auto_install: bool) -> Result<Option<String>> {
             warn!("Update check failed: {}", e);
             Err(SyncError::Update(format!("Update check failed: {}", e)))
         }
+    }
+}
+
+/// Restart the application after a successful update.
+/// This function does not return on success.
+pub fn restart_app() -> ! {
+    info!("Restarting application after update...");
+
+    #[cfg(target_os = "macos")]
+    {
+        // Navigate from binary inside .app/Contents/MacOS/cook-sync up to .app bundle
+        let bundle_path = std::env::current_exe().ok().and_then(|p| {
+            p.parent() // MacOS/
+                .and_then(|p| p.parent()) // Contents/
+                .and_then(|p| p.parent()) // .app
+                .map(|p| p.to_path_buf())
+        });
+
+        if let Some(bundle) = &bundle_path {
+            info!("Relaunching app bundle: {:?}", bundle);
+            let _ = std::process::Command::new("open")
+                .arg("-n")
+                .arg(bundle)
+                .arg("--args")
+                .arg("start")
+                .spawn();
+        } else {
+            error!("Could not determine app bundle path for restart");
+        }
+        std::process::exit(0);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::process::CommandExt;
+        // On Linux AppImage, $APPIMAGE points to the AppImage file.
+        // After update, the binary has been replaced in-place, so $APPIMAGE is correct.
+        let exe = std::env::var("APPIMAGE")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::env::current_exe().unwrap_or_default());
+
+        info!("Restarting via exec: {:?}", exe);
+        let err = std::process::Command::new(&exe).args(["start"]).exec();
+        // exec() only returns on error
+        error!("Failed to restart: {}", err);
+        std::process::exit(1);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, the NSIS installer typically handles restart.
+        // As a fallback, spawn new process and exit.
+        let exe = std::env::current_exe().unwrap_or_default();
+        info!("Restarting via spawn: {:?}", exe);
+        let _ = std::process::Command::new(&exe).args(["start"]).spawn();
+        std::process::exit(0);
     }
 }
 
