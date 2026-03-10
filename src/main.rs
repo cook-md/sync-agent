@@ -853,6 +853,12 @@ async fn reset_all_data(skip_confirmation: bool) -> Result<()> {
         }
     }
 
+    // Delete relocation-declined marker (Linux AppImage)
+    let relocation_marker = paths.config_dir.join("relocation-declined");
+    if relocation_marker.exists() {
+        let _ = std::fs::remove_file(&relocation_marker);
+    }
+
     // Try to remove directories if empty
     let _ = std::fs::remove_dir(&paths.config_dir);
     let _ = std::fs::remove_dir(&paths.data_dir);
