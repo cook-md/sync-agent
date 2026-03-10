@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/cook-md/sync-agent/compare/v0.8.0...v0.8.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* extract .app from DMG for tar.gz archive creation ([dda79d7](https://github.com/cook-md/sync-agent/commit/dda79d76f9088442c73012847a0397dc629d5cff))
+* extract .app from DMG for tar.gz archive creation ([5a8eff7](https://github.com/cook-md/sync-agent/commit/5a8eff7b11a116b84e763b409eee8ff7401dd941))
+
 ## [0.8.0](https://github.com/cook-md/sync-agent/compare/v0.7.13...v0.8.0) (2026-03-10)
 
 
