@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.0](https://github.com/cook-md/sync-agent/compare/v0.8.3...v0.9.0) (2026-03-10)
+
+
+### Features
+
+* add AppImage self-relocation from transient locations ([f198f8f](https://github.com/cook-md/sync-agent/commit/f198f8f679b190078d65278f17f7c3f72eefd7f5))
+* AppImage self-relocation from transient locations ([f587243](https://github.com/cook-md/sync-agent/commit/f58724388896d676aed966855e6f510933d4fa74))
+
+
+### Bug Fixes
+
+* clean up relocation-declined marker during reset ([b50a564](https://github.com/cook-md/sync-agent/commit/b50a56494d34930575d4dab066075bedaef88433))
+* make AppImage removal best-effort and use generic dialog text ([6c6f7df](https://github.com/cook-md/sync-agent/commit/6c6f7df206017ecd9e54ba34dc9a1ea3fd49f166))
+
 ## [0.8.3](https://github.com/cook-md/sync-agent/compare/v0.8.2...v0.8.3) (2026-03-10)
 
 
