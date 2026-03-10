@@ -64,7 +64,7 @@ pub fn init_logging(log_file_path: &Path) -> Result<()> {
     *LOG_FILE.lock().unwrap() = Some(log_file);
 
     // Initialize env_logger with custom output
-    let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
+    let mut builder = Builder::from_env(Env::default().default_filter_or("warn,cook_sync=info"));
 
     // Configure to write to both stderr and our log file
     builder.target(Target::Stderr);
@@ -95,7 +95,8 @@ pub fn init_logging(log_file_path: &Path) -> Result<()> {
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
         builder.parse_filters(&rust_log);
     } else {
-        builder.filter_level(LevelFilter::Info);
+        builder.filter_level(LevelFilter::Warn);
+        builder.filter_module("cook_sync", LevelFilter::Info);
     }
 
     builder.init();
