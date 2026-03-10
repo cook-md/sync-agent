@@ -275,14 +275,17 @@ jobs:
           fi
 
           echo "Extracting .app from DMG: $DMG_FILE"
-          # Let hdiutil choose its own mount point (more reliable on CI)
-          MOUNT_OUTPUT=$(hdiutil attach "$DMG_FILE" -nobrowse 2>&1) || {
+          # The DMG has an embedded EULA that blocks non-interactive attach.
+          # Use DUTI / echo 'Y' trick or -stdinpass won't help here.
+          # Instead, convert DMG to a plain folder via 7z or use hdiutil with
+          # the undocumented -noverify -noautofsck flags and pipe acceptance.
+          MOUNT_OUTPUT=$(echo "Y" | hdiutil attach "$DMG_FILE" -nobrowse 2>&1) || {
             echo "ERROR: hdiutil attach failed:"
             echo "$MOUNT_OUTPUT"
             exit 1
           }
           # hdiutil prints mount info as last line: /dev/diskN  Apple_HFS  /Volumes/Name
-          MOUNT_DIR=$(echo "$MOUNT_OUTPUT" | tail -1 | awk -F'\t' '{print $NF}')
+          MOUNT_DIR=$(echo "$MOUNT_OUTPUT" | grep '/Volumes/' | awk -F'\t' '{print $NF}')
           echo "Mounted at: $MOUNT_DIR"
 
           APP_NAME=$(find "$MOUNT_DIR" -maxdepth 1 -name "*.app" -type d | head -1)
