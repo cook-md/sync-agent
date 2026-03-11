@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/cook-md/sync-agent/compare/v0.9.1...v0.9.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* resolve Linux login, tray icon, and app icon issues ([46ca5bf](https://github.com/cook-md/sync-agent/commit/46ca5bf38be911bc28161ef514d2ac065899657e))
+
 ## [0.9.1](https://github.com/cook-md/sync-agent/compare/v0.9.0...v0.9.1) (2026-03-11)
 
 
