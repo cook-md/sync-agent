@@ -18,23 +18,20 @@ A lightweight, cross-platform sync agent for Cook.md that runs in the background
 ### macOS
 
 **DMG:**
-Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
+Download from [releases](https://github.com/cook-md/sync-agent/releases/latest)
 - Supports automatic updates
 
 ### Windows
 
-**MSI installer:**
-Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
+**Installer (.exe):**
+Download from [releases](https://github.com/cook-md/sync-agent/releases/latest)
 
 ### Linux
 
 **AppImage:**
-Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
+Download from [releases](https://github.com/cook-md/sync-agent/releases/latest)
 
-1. Download the AppImage:
-   ```bash
-   wget https://github.com/Cooklang/sync-agent/releases/latest/download/cook-sync-x86_64.AppImage
-   ```
+1. Download the `.AppImage` file from the [releases page](https://github.com/cook-md/sync-agent/releases/latest)
 
 2. Make it executable:
    ```bash
@@ -163,7 +160,7 @@ Cook Sync automatically checks for updates and notifies you when new versions ar
 
 The update mechanism varies by installation method:
 - **DMG**: Updates via built-in updater
-- **MSI**: Built-in updater via `cook-sync update`
+- **Windows**: Built-in updater via `cook-sync update`
 - **AppImage**: Built-in updater via `cook-sync update`
 
 You can check for updates at any time:
