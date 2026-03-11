@@ -320,7 +320,12 @@ impl ksni::Tray for CookSyncTray {
     }
 
     fn icon_name(&self) -> String {
-        self.state.icon_name.lock().unwrap().clone()
+        // Return empty string to force tray hosts to use icon_pixmap() instead.
+        // Named icon lookup requires icons installed in the system icon theme
+        // (e.g., /usr/share/icons/hicolor/), which we don't do for tray icons.
+        // Some tray hosts (Cinnamon, GNOME) won't fall back to pixmap if
+        // icon_name returns a non-empty string that can't be resolved.
+        String::new()
     }
 
     // Use icon_pixmap for embedded icon if icon_name doesn't work
@@ -618,6 +623,18 @@ impl SystemTray {
     }
 }
 
+/// Convert RGBA pixel data to ARGB format (required by StatusNotifierItem D-Bus spec).
+fn rgba_to_argb(rgba: Vec<u8>) -> Vec<u8> {
+    let mut argb = Vec::with_capacity(rgba.len());
+    for pixel in rgba.chunks_exact(4) {
+        argb.push(pixel[3]); // A
+        argb.push(pixel[0]); // R
+        argb.push(pixel[1]); // G
+        argb.push(pixel[2]); // B
+    }
+    argb
+}
+
 // Helper function to load icon as pixmap
 fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
     let is_light_icon = icon_name.contains("light");
@@ -661,11 +678,12 @@ fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
                 if let Ok(img) = image::load_from_memory(&icon_data) {
                     let rgba = img.to_rgba8();
                     let (width, height) = rgba.dimensions();
+                    let data = rgba_to_argb(rgba.into_raw());
 
                     return Ok(vec![ksni::Icon {
                         width: width as i32,
                         height: height as i32,
-                        data: rgba.into_raw(),
+                        data,
                     }]);
                 }
             }
@@ -683,10 +701,11 @@ fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
     if let Ok(img) = image::load_from_memory(embedded_data) {
         let rgba = img.to_rgba8();
         let (width, height) = rgba.dimensions();
+        let data = rgba_to_argb(rgba.into_raw());
         return Ok(vec![ksni::Icon {
             width: width as i32,
             height: height as i32,
-            data: rgba.into_raw(),
+            data,
         }]);
     }
 

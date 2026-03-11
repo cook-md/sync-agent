@@ -243,41 +243,66 @@ pub mod desktop_integration {
         })
     }
 
+    /// Find the AppImage mount root directory
+    fn find_mount_root() -> Result<PathBuf> {
+        // Prefer APPDIR env var (set by AppImage runtime)
+        if let Ok(appdir) = std::env::var("APPDIR") {
+            let path = PathBuf::from(&appdir);
+            if path.exists() {
+                debug!("Using APPDIR: {}", appdir);
+                return Ok(path);
+            }
+        }
+
+        // Fallback: navigate up from binary path
+        let exe_path = std::env::current_exe()?;
+        exe_path
+            .parent() // /tmp/.mount_XXX/usr/bin
+            .and_then(|p| p.parent()) // /tmp/.mount_XXX/usr
+            .and_then(|p| p.parent()) // /tmp/.mount_XXX
+            .map(|p| p.to_path_buf())
+            .ok_or_else(|| SyncError::Platform("Cannot find AppImage mount point".into()))
+    }
+
     /// Extract an icon from the mounted AppImage
     pub fn extract_icon(size: &str) -> Result<Vec<u8>> {
-        let exe_path = std::env::current_exe()?;
+        let size_num = size.split('x').next().unwrap();
+        let mount_root = find_mount_root()?;
 
-        let mount_root = exe_path
-            .parent()
-            .and_then(|p| p.parent())
-            .and_then(|p| p.parent())
-            .ok_or_else(|| SyncError::Platform("Cannot find AppImage mount point".into()))?;
+        debug!(
+            "Looking for icon size {} in AppImage mount: {}",
+            size,
+            mount_root.display()
+        );
 
         // Try multiple possible icon locations
         let icon_paths = [
+            // Standard hicolor theme location (cargo-packager places icons here)
             mount_root.join(format!(
                 "usr/share/icons/hicolor/{}/apps/cook-sync.png",
                 size
             )),
+            // cargo-packager resource directory
+            mount_root.join(format!("usr/lib/cook-sync/icon-{}.png", size_num)),
+            // Pixmaps
             mount_root.join(format!("usr/share/pixmaps/cook-sync-{}.png", size)),
-            // Fallback to looking for icon files in the binary directory
-            mount_root.join(format!(
-                "usr/bin/icon-{}.png",
-                size.split('x').next().unwrap()
-            )),
+            // Binary directory fallback
+            mount_root.join(format!("usr/bin/icon-{}.png", size_num)),
         ];
 
         for icon_path in &icon_paths {
+            debug!("  Checking: {}", icon_path.display());
             if icon_path.exists() {
-                debug!("Found icon at: {}", icon_path.display());
+                debug!("  Found icon at: {}", icon_path.display());
                 return fs::read(icon_path)
                     .map_err(|e| SyncError::Platform(format!("Failed to read icon file: {}", e)));
             }
         }
 
         Err(SyncError::Platform(format!(
-            "Icon not found for size: {}",
-            size
+            "Icon not found for size {} in mount root {}",
+            size,
+            mount_root.display()
         )))
     }
 
@@ -315,6 +340,7 @@ pub mod desktop_integration {
         // Icon sizes to install
         let sizes = ["16x16", "32x32", "48x48", "128x128", "256x256"];
 
+        let mut installed_any = false;
         for size in &sizes {
             let target_dir = icons_dir.join(format!("{}/apps", size));
             fs::create_dir_all(&target_dir)?;
@@ -323,13 +349,47 @@ pub mod desktop_integration {
             if let Ok(icon_data) = extract_icon(size) {
                 let icon_path = target_dir.join("cook-sync.png");
                 fs::write(&icon_path, icon_data)?;
-                debug!("Installed icon: {}", icon_path.display());
+                info!("Installed icon: {}", icon_path.display());
+                installed_any = true;
             } else {
                 debug!("Icon not found for size: {}", size);
             }
         }
 
+        if !installed_any {
+            warn!("No icons found in AppImage, using embedded fallback");
+            // Use the 256px icon compiled into the binary as fallback
+            let fallback_data = include_bytes!("../../assets/icon-256.png");
+            let target_dir = icons_dir.join("256x256/apps");
+            fs::create_dir_all(&target_dir)?;
+            let icon_path = target_dir.join("cook-sync.png");
+            fs::write(&icon_path, fallback_data)?;
+            info!("Installed embedded fallback icon: {}", icon_path.display());
+        }
+
+        // Update icon cache so the desktop environment picks up new icons
+        update_icon_cache(&icons_dir);
+
         Ok(())
+    }
+
+    /// Update the GTK icon cache (best effort)
+    fn update_icon_cache(icons_dir: &Path) {
+        match clean_appimage_env("gtk-update-icon-cache")
+            .args(["--force", "--ignore-theme-index"])
+            .arg(icons_dir)
+            .status()
+        {
+            Ok(status) if status.success() => {
+                debug!("Icon cache updated");
+            }
+            Ok(status) => {
+                debug!("gtk-update-icon-cache exited with: {}", status);
+            }
+            Err(e) => {
+                debug!("Could not update icon cache: {}", e);
+            }
+        }
     }
 
     /// Update the desktop database (optional, best effort)

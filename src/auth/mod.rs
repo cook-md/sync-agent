@@ -117,7 +117,7 @@ impl AuthManager {
         let state = uuid::Uuid::new_v4().to_string();
 
         // Construct callback URL
-        let callback_url = format!("http://localhost:{port}/auth/callback");
+        let callback_url = format!("http://127.0.0.1:{port}/auth/callback");
         let encoded_callback = urlencoding::encode(&callback_url);
 
         // Get base URL from API endpoint
