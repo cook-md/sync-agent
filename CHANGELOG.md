@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.4](https://github.com/cook-md/sync-agent/compare/v0.9.3...v0.9.4) (2026-03-11)
+
+
+### Bug Fixes
+
+* use DE-specific dark mode detection for Linux tray icon ([d235f75](https://github.com/cook-md/sync-agent/commit/d235f75a819def54d39bf903c196020a14366c17))
+
 ## [0.9.3](https://github.com/cook-md/sync-agent/compare/v0.9.2...v0.9.3) (2026-03-11)
 
 
