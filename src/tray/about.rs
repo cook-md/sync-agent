@@ -66,7 +66,8 @@ fn open_logs_dir(log_file_path: &std::path::Path) {
 #[cfg(target_os = "linux")]
 fn show_linux_dialog(message: &str, log_file_path: &std::path::Path) -> bool {
     // Try zenity first (GNOME/GTK desktops)
-    if let Ok(output) = std::process::Command::new("zenity")
+    // Use clean_appimage_env to avoid library conflicts with bundled libs
+    if let Ok(output) = crate::platform::linux::desktop_integration::clean_appimage_env("zenity")
         .args([
             "--question",
             "--title=About Cook Sync",
@@ -106,7 +107,7 @@ fn show_linux_dialog(message: &str, log_file_path: &std::path::Path) -> bool {
     }
 
     // Try kdialog (KDE desktops)
-    if let Ok(output) = std::process::Command::new("kdialog")
+    if let Ok(output) = crate::platform::linux::desktop_integration::clean_appimage_env("kdialog")
         .args([
             "--title",
             "About Cook Sync",

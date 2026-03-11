@@ -8,26 +8,17 @@ use log::info;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-/// Load window icon from assets
+/// Load window icon — use embedded icon so it works in AppImage
 fn load_window_icon() -> Option<egui::IconData> {
-    let icon_paths = [
-        "assets/logo-1024.png",
-        "assets/icon-256.png",
-        "assets/icon-128.png",
-    ];
-
-    for path in &icon_paths {
-        if let Ok(image_bytes) = std::fs::read(path) {
-            if let Ok(image) = image::load_from_memory(&image_bytes) {
-                let rgba = image.to_rgba8();
-                let (width, height) = rgba.dimensions();
-                return Some(egui::IconData {
-                    rgba: rgba.into_raw(),
-                    width,
-                    height,
-                });
-            }
-        }
+    let icon_bytes = include_bytes!("../../assets/icon-256.png");
+    if let Ok(image) = image::load_from_memory(icon_bytes) {
+        let rgba = image.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        return Some(egui::IconData {
+            rgba: rgba.into_raw(),
+            width,
+            height,
+        });
     }
     None
 }

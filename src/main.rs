@@ -718,6 +718,12 @@ fn check_and_relocate_appimage() -> Result<()> {
         return Ok(());
     }
 
+    // Skip relocation when restarting after an update — the dialog would block
+    // the daemon from starting and the user didn't initiate this launch.
+    if std::env::var("COOK_SYNC_UPDATE_RESTART").is_ok() {
+        return Ok(());
+    }
+
     let args: Vec<String> = std::env::args().collect();
     if args
         .iter()

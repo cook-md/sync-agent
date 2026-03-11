@@ -33,6 +33,19 @@ pub mod desktop_integration {
         false
     }
 
+    /// Create a Command with the AppImage's LD_LIBRARY_PATH cleared so that
+    /// system tools (zenity, kdialog, etc.) load their own libraries instead of
+    /// the bundled ones, which can cause symbol-lookup crashes.
+    pub fn clean_appimage_env(program: &str) -> std::process::Command {
+        let mut cmd = std::process::Command::new(program);
+        if let Ok(orig) = std::env::var("LD_LIBRARY_PATH_ORIG") {
+            cmd.env("LD_LIBRARY_PATH", orig);
+        } else {
+            cmd.env_remove("LD_LIBRARY_PATH");
+        }
+        cmd
+    }
+
     /// Check if the AppImage is in a transient location (Downloads, Desktop, /tmp)
     fn is_transient_location(appimage_path: &Path) -> bool {
         let path_str = appimage_path.to_string_lossy();
@@ -84,7 +97,8 @@ pub mod desktop_integration {
 
     /// Show a zenity dialog asking the user if they want to relocate the AppImage
     fn show_relocation_dialog() -> bool {
-        match std::process::Command::new("zenity")
+        let mut cmd = clean_appimage_env("zenity");
+        match cmd
             .args([
                 "--question",
                 "--title=Move Cook Sync?",
@@ -320,7 +334,7 @@ pub mod desktop_integration {
 
     /// Update the desktop database (optional, best effort)
     pub fn update_desktop_database(apps_dir: &Path) -> Result<()> {
-        match std::process::Command::new("update-desktop-database")
+        match clean_appimage_env("update-desktop-database")
             .arg(apps_dir)
             .status()
         {
@@ -602,7 +616,7 @@ impl PlatformIntegration for LinuxIntegration {
 
 fn check_gnome_dark_mode() -> bool {
     // Try to get GNOME color scheme setting
-    if let Ok(output) = std::process::Command::new("gsettings")
+    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
         .output()
     {
@@ -611,7 +625,7 @@ fn check_gnome_dark_mode() -> bool {
     }
 
     // Fallback: Check GTK theme name
-    if let Ok(output) = std::process::Command::new("gsettings")
+    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
         .args(["get", "org.gnome.desktop.interface", "gtk-theme"])
         .output()
     {

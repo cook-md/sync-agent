@@ -620,17 +620,17 @@ impl SystemTray {
 
 // Helper function to load icon as pixmap
 fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
+    let is_light_icon = icon_name.contains("light");
+
     // Use dedicated tray icons (monochrome)
     // For dark mode, use white icons; for light mode, use black icons
-    let icon_sizes = if icon_name.contains("light") {
-        // Dark mode: use white tray icons
+    let icon_sizes = if is_light_icon {
         vec![
             "icon_whitetray_32.png",
             "icon_whitetray_24.png",
             "icon_whitetray_48.png",
         ]
     } else {
-        // Light mode: use black tray icons
         vec![
             "icon_blacktray_32.png",
             "icon_blacktray_24.png",
@@ -658,7 +658,6 @@ fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
             if let Ok(icon_data) = std::fs::read(path) {
                 debug!("Loaded tray icon from: {}", path);
 
-                // Load PNG and convert to RGBA
                 if let Ok(img) = image::load_from_memory(&icon_data) {
                     let rgba = img.to_rgba8();
                     let (width, height) = rgba.dimensions();
@@ -671,6 +670,24 @@ fn load_icon_pixmap(icon_name: &str) -> Result<Vec<ksni::Icon>> {
                 }
             }
         }
+    }
+
+    // Fallback: use embedded icons compiled into the binary
+    debug!("Using embedded fallback tray icon");
+    let embedded_data: &[u8] = if is_light_icon {
+        include_bytes!("../../assets/icon_whitetray_32.png")
+    } else {
+        include_bytes!("../../assets/icon_blacktray_32.png")
+    };
+
+    if let Ok(img) = image::load_from_memory(embedded_data) {
+        let rgba = img.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        return Ok(vec![ksni::Icon {
+            width: width as i32,
+            height: height as i32,
+            data: rgba.into_raw(),
+        }]);
     }
 
     Err(SyncError::Tray(format!(

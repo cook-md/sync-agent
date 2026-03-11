@@ -109,7 +109,8 @@ pub fn show_update_dialog(version: &str, notes: &str) -> Result<bool> {
     );
 
     // For GUI dialog with privilege warning
-    if let Ok(output) = std::process::Command::new("zenity")
+    // Use clean_appimage_env to avoid library conflicts with bundled libs
+    if let Ok(output) = crate::platform::linux::desktop_integration::clean_appimage_env("zenity")
         .args([
             "--question",
             "--title=Cook Sync Update",

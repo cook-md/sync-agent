@@ -133,7 +133,10 @@ pub fn restart_app() -> ! {
             .unwrap_or_else(|_| std::env::current_exe().unwrap_or_default());
 
         info!("Restarting via exec: {:?}", exe);
-        let err = std::process::Command::new(&exe).args(["start"]).exec();
+        let err = std::process::Command::new(&exe)
+            .args(["start"])
+            .env("COOK_SYNC_UPDATE_RESTART", "1")
+            .exec();
         // exec() only returns on error
         error!("Failed to restart: {}", err);
         std::process::exit(1);
