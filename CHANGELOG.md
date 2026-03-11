@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/cook-md/sync-agent/compare/v0.9.0...v0.9.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* resolve AppImage issues with update restart, zenity crashes, and missing icons ([e040c2e](https://github.com/cook-md/sync-agent/commit/e040c2e36c421aa6cb6306bf4a94acdae97dd51d))
+
 ## [0.9.0](https://github.com/cook-md/sync-agent/compare/v0.8.3...v0.9.0) (2026-03-10)
 
 
