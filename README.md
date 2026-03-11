@@ -17,11 +17,6 @@ A lightweight, cross-platform sync agent for Cook.md that runs in the background
 
 ### macOS
 
-**Homebrew (recommended):**
-```bash
-brew install cooklang/tap/cook-sync
-```
-
 **DMG:**
 Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
 - Supports automatic updates
@@ -167,7 +162,6 @@ cook-sync stop
 Cook Sync automatically checks for updates and notifies you when new versions are available.
 
 The update mechanism varies by installation method:
-- **Homebrew**: Use `brew upgrade cook-sync`
 - **DMG**: Updates via built-in updater
 - **MSI**: Built-in updater via `cook-sync update`
 - **AppImage**: Built-in updater via `cook-sync update`
