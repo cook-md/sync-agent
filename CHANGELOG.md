@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.3](https://github.com/cook-md/sync-agent/compare/v0.9.2...v0.9.3) (2026-03-11)
+
+
+### Bug Fixes
+
+* add missing warn macro import for Linux build ([ac81307](https://github.com/cook-md/sync-agent/commit/ac81307b4929a919eff29a3e26429fcfcfe30847))
+
 ## [0.9.2](https://github.com/cook-md/sync-agent/compare/v0.9.1...v0.9.2) (2026-03-11)
 
 
