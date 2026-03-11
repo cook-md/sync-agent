@@ -6,7 +6,7 @@ A lightweight, cross-platform sync agent for Cook.md that runs in the background
 
 - **Cross-platform**: Works on macOS, Linux, and Windows
 - **System tray integration**: Shows sync status and provides quick actions
-- **Automatic syncing**: Syncs recipes every 12 seconds (configurable)
+- **Automatic syncing**: Watches local files for changes and syncs with remote server
 - **OAuth authentication**: Browser-based login flow for security
 - **JWT token rotation**: Automatically refreshes authentication tokens daily
 - **Auto-start**: Can be configured to start with the system
