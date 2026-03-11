@@ -1,7 +1,7 @@
 use super::{PlatformIntegration, ThemeChange, ThemeWatcher};
 use crate::error::{Result, SyncError};
 use auto_launch::AutoLaunchBuilder;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
