@@ -593,7 +593,7 @@ impl PlatformIntegration for LinuxIntegration {
     }
 
     fn is_dark_mode(&self) -> bool {
-        matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
+        detect_dark_mode()
     }
 
     fn is_desktop_integration_installed(&self) -> Result<bool> {
@@ -614,15 +614,7 @@ impl PlatformIntegration for LinuxIntegration {
         let handle = thread::spawn(move || {
             debug!("Starting Linux theme watcher (5-second polling)");
 
-            let mut last_is_dark = matches!(dark_light::detect(), Ok(dark_light::Mode::Dark));
-
-            // Try to detect the desktop environment
-            let desktop = std::env::var("XDG_CURRENT_DESKTOP")
-                .or_else(|_| std::env::var("DESKTOP_SESSION"))
-                .unwrap_or_default()
-                .to_lowercase();
-
-            debug!("Detected desktop environment: {}", desktop);
+            let mut last_is_dark = detect_dark_mode();
 
             while !shutdown_signal.load(Ordering::Relaxed) {
                 // Sleep for 5 seconds between checks
@@ -634,17 +626,7 @@ impl PlatformIntegration for LinuxIntegration {
                     thread::sleep(Duration::from_millis(100));
                 }
 
-                // Check theme using appropriate method for the desktop environment
-                let current_is_dark = if desktop.contains("gnome") || desktop.contains("ubuntu") {
-                    // GNOME/Ubuntu: Check gsettings
-                    check_gnome_dark_mode()
-                } else if desktop.contains("kde") || desktop.contains("plasma") {
-                    // KDE Plasma: Check config file
-                    check_kde_dark_mode()
-                } else {
-                    // Fallback to dark-light crate detection
-                    matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
-                };
+                let current_is_dark = detect_dark_mode();
 
                 if current_is_dark != last_is_dark {
                     let theme = if current_is_dark {
@@ -674,26 +656,69 @@ impl PlatformIntegration for LinuxIntegration {
     }
 }
 
+/// Detect dark mode using desktop-environment-specific methods.
+/// Falls back to the dark_light crate when the DE is not recognized.
+pub fn detect_dark_mode() -> bool {
+    let desktop = std::env::var("XDG_CURRENT_DESKTOP")
+        .or_else(|_| std::env::var("DESKTOP_SESSION"))
+        .unwrap_or_default()
+        .to_lowercase();
+
+    if desktop.contains("cinnamon") {
+        check_cinnamon_dark_mode()
+    } else if desktop.contains("gnome") || desktop.contains("ubuntu") || desktop.contains("budgie")
+    {
+        check_gnome_dark_mode()
+    } else if desktop.contains("kde") || desktop.contains("plasma") {
+        check_kde_dark_mode()
+    } else if desktop.contains("xfce") {
+        check_xfce_dark_mode()
+    } else if desktop.contains("mate") {
+        check_mate_dark_mode()
+    } else {
+        // Try GNOME gsettings as a broad fallback (many DEs support it)
+        if let Some(result) = try_gsettings_gtk_theme() {
+            return result;
+        }
+        matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
+    }
+}
+
+fn check_cinnamon_dark_mode() -> bool {
+    // Cinnamon: check GTK theme via gsettings (same schema path as GNOME)
+    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
+        .args(["get", "org.cinnamon.desktop.interface", "gtk-theme"])
+        .output()
+    {
+        if output.status.success() {
+            let theme = String::from_utf8_lossy(&output.stdout).to_lowercase();
+            return theme.contains("dark");
+        }
+    }
+
+    // Fallback: try the GNOME interface schema (Cinnamon often supports it too)
+    check_gnome_dark_mode()
+}
+
 fn check_gnome_dark_mode() -> bool {
     // Try to get GNOME color scheme setting
     if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
         .output()
     {
-        let scheme = String::from_utf8_lossy(&output.stdout);
-        return scheme.contains("dark") || scheme.contains("prefer-dark");
+        if output.status.success() {
+            let scheme = String::from_utf8_lossy(&output.stdout);
+            if scheme.contains("dark") || scheme.contains("prefer-dark") {
+                return true;
+            }
+        }
     }
 
     // Fallback: Check GTK theme name
-    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
-        .args(["get", "org.gnome.desktop.interface", "gtk-theme"])
-        .output()
-    {
-        let theme = String::from_utf8_lossy(&output.stdout).to_lowercase();
-        return theme.contains("dark");
+    if let Some(result) = try_gsettings_gtk_theme() {
+        return result;
     }
 
-    // Final fallback
     matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
 }
 
@@ -702,7 +727,6 @@ fn check_kde_dark_mode() -> bool {
     if let Some(home) = dirs::home_dir() {
         let config_path = home.join(".config/kdeglobals");
         if let Ok(content) = fs::read_to_string(&config_path) {
-            // Look for dark color scheme indicators in the config
             for line in content.lines() {
                 if line.starts_with("ColorScheme=") {
                     let scheme = line.replace("ColorScheme=", "").to_lowercase();
@@ -712,6 +736,57 @@ fn check_kde_dark_mode() -> bool {
         }
     }
 
-    // Fallback to dark-light crate
     matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
+}
+
+fn check_xfce_dark_mode() -> bool {
+    // XFCE: check GTK theme via xfconf or gsettings
+    if let Ok(output) = desktop_integration::clean_appimage_env("xfconf-query")
+        .args(["-c", "xsettings", "-p", "/Net/ThemeName"])
+        .output()
+    {
+        if output.status.success() {
+            let theme = String::from_utf8_lossy(&output.stdout).to_lowercase();
+            return theme.contains("dark");
+        }
+    }
+
+    if let Some(result) = try_gsettings_gtk_theme() {
+        return result;
+    }
+
+    matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
+}
+
+fn check_mate_dark_mode() -> bool {
+    // MATE: check GTK theme via gsettings
+    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
+        .args(["get", "org.mate.interface", "gtk-theme"])
+        .output()
+    {
+        if output.status.success() {
+            let theme = String::from_utf8_lossy(&output.stdout).to_lowercase();
+            return theme.contains("dark");
+        }
+    }
+
+    if let Some(result) = try_gsettings_gtk_theme() {
+        return result;
+    }
+
+    matches!(dark_light::detect(), Ok(dark_light::Mode::Dark))
+}
+
+/// Try reading GTK theme from the GNOME interface schema (broadly supported).
+fn try_gsettings_gtk_theme() -> Option<bool> {
+    if let Ok(output) = desktop_integration::clean_appimage_env("gsettings")
+        .args(["get", "org.gnome.desktop.interface", "gtk-theme"])
+        .output()
+    {
+        if output.status.success() {
+            let theme = String::from_utf8_lossy(&output.stdout).to_lowercase();
+            return Some(theme.contains("dark"));
+        }
+    }
+    None
 }

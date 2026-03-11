@@ -52,9 +52,10 @@ impl TrayState {
         runtime_handle: Handle,
         auto_start_enabled: bool,
     ) -> Self {
-        let icon_name = match dark_light::detect() {
-            Ok(dark_light::Mode::Dark) => "cook-sync-light",
-            _ => "cook-sync-dark",
+        let icon_name = if crate::platform::linux::detect_dark_mode() {
+            "cook-sync-light"
+        } else {
+            "cook-sync-dark"
         };
 
         Self {
@@ -600,17 +601,18 @@ impl SystemTray {
         let shutdown_signal = Arc::clone(&self.state.shutdown_signal);
 
         std::thread::spawn(move || {
-            let mut last_mode = dark_light::detect().ok();
+            let mut last_is_dark = crate::platform::linux::detect_dark_mode();
 
             while !shutdown_signal.load(Ordering::Relaxed) {
-                let current_mode = dark_light::detect().ok();
+                let current_is_dark = crate::platform::linux::detect_dark_mode();
 
-                if current_mode != last_mode {
-                    last_mode = current_mode;
+                if current_is_dark != last_is_dark {
+                    last_is_dark = current_is_dark;
 
-                    let icon = match current_mode {
-                        Some(dark_light::Mode::Dark) => "cook-sync-light",
-                        _ => "cook-sync-dark",
+                    let icon = if current_is_dark {
+                        "cook-sync-light"
+                    } else {
+                        "cook-sync-dark"
                     };
 
                     *icon_name_arc.lock().unwrap() = icon.to_string();
