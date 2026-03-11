@@ -24,29 +24,14 @@ brew install cooklang/tap/cook-sync
 
 **DMG:**
 Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
-- Includes Sparkle framework for automatic updates
-
-**Shell installer:**
-```bash
-curl -sSL https://github.com/Cooklang/sync-agent/releases/latest/download/cook-sync-installer.sh | sh
-```
+- Supports automatic updates
 
 ### Windows
 
 **MSI installer:**
 Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
 
-**PowerShell:**
-```powershell
-irm https://github.com/Cooklang/sync-agent/releases/latest/download/cook-sync-installer.ps1 | iex
-```
-
 ### Linux
-
-**Shell installer (recommended):**
-```bash
-curl -sSL https://github.com/Cooklang/sync-agent/releases/latest/download/cook-sync-installer.sh | sh
-```
 
 **AppImage:**
 Download from [releases](https://github.com/Cooklang/sync-agent/releases/latest)
@@ -162,9 +147,6 @@ cook-sync config --auto-start true
 cook-sync login
 
 # Check for updates
-cook-sync update --check-only
-
-# Install updates
 cook-sync update
 
 # Install desktop integration (Linux AppImage only)
@@ -172,6 +154,9 @@ cook-sync install
 
 # Uninstall desktop integration (Linux AppImage only)
 cook-sync uninstall
+
+# Show current configuration
+cook-sync config --show
 
 # Stop the agent
 cook-sync stop
@@ -183,13 +168,13 @@ Cook Sync automatically checks for updates and notifies you when new versions ar
 
 The update mechanism varies by installation method:
 - **Homebrew**: Use `brew upgrade cook-sync`
-- **DMG**: Updates via Sparkle framework (automatic)
-- **MSI/Shell/PowerShell**: Built-in updater via `cook-sync update`
-- **AppImage**: Built-in AppImageUpdate support
+- **DMG**: Updates via built-in updater
+- **MSI**: Built-in updater via `cook-sync update`
+- **AppImage**: Built-in updater via `cook-sync update`
 
-You can manually check for updates at any time:
+You can check for updates at any time:
 ```bash
-cook-sync update --check-only
+cook-sync update
 ```
 
 ## Configuration
@@ -231,6 +216,7 @@ When developing with a local Rails server:
 - `COOK_ENDPOINT`: Base URL for Cook.md (default: `https://cook.md`)
   - Used for both OAuth login and API calls
   - API calls will use `$COOK_ENDPOINT/api`
+- `COOK_SYNC_ENDPOINT`: Override sync server endpoint (default: derived from `COOK_ENDPOINT`)
 - `RUST_LOG`: Logging configuration (e.g., `cook_sync=debug`)
 
 See `.env.example` for more details.
@@ -258,9 +244,7 @@ The sync agent is built with:
 - **cooklang-sync-client**: For syncing with CookCloud
 - **tray-icon**: For system tray integration
 - **tokio**: For async runtime
-- **axoupdater**: For cross-platform auto-updates (shell/PowerShell/MSI)
-- **Sparkle**: For macOS .app bundle updates
-- **AppImageUpdate**: For Linux AppImage updates
+- **cargo-packager-updater**: For cross-platform auto-updates
 
 ## Migration from Desktop App
 
