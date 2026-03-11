@@ -122,6 +122,26 @@ sudo pacman -S libappindicator-gtk3 gtk3
 
 ## Usage
 
+Cook Sync runs as a background agent with a system tray icon. It also provides a command line interface:
+
+```
+cook-sync [COMMAND]
+
+Commands:
+  start       Start the sync agent daemon
+  stop        Stop the running sync agent
+  status      Show sync status
+  login       Open browser for login
+  logout      Logout and clear session
+  config      Configure sync settings
+  update      Check for updates
+  install     Install desktop integration (Linux AppImage only)
+  uninstall   Uninstall desktop integration (Linux AppImage only)
+  reset       Reset all configuration and data (stops daemon if running)
+```
+
+### Examples
+
 ```bash
 # Start the sync agent
 cook-sync start
@@ -129,26 +149,21 @@ cook-sync start
 # Show status
 cook-sync status
 
-# Configure recipes directory
-cook-sync config --recipes-dir ~/Documents/CookRecipes
-
-# Enable auto-start
-cook-sync config --auto-start true
-
 # Login (opens browser)
 cook-sync login
 
-# Check for updates
-cook-sync update
+# Configure recipes directory
+cook-sync config --recipes-dir ~/Documents/CookRecipes
 
-# Install desktop integration (Linux AppImage only)
-cook-sync install
-
-# Uninstall desktop integration (Linux AppImage only)
-cook-sync uninstall
+# Enable auto-start and auto-update
+cook-sync config --auto-start true
+cook-sync config --auto-update true
 
 # Show current configuration
 cook-sync config --show
+
+# Reset all data (with confirmation prompt)
+cook-sync reset
 
 # Stop the agent
 cook-sync stop
