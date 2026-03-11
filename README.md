@@ -252,15 +252,6 @@ The sync agent is built with:
 - **tokio**: For async runtime
 - **cargo-packager-updater**: For cross-platform auto-updates
 
-## Migration from Desktop App
-
-This sync agent replaces the deprecated Tauri-based desktop app. It will automatically:
-- Detect existing desktop app installations
-- Migrate your authentication and settings
-- Continue syncing from where the desktop app left off
-
-The desktop app will be automatically updated to this new sync agent through the auto-update mechanism.
-
 ## License
 
 Copyright (c) Alexey Dubovskoy
