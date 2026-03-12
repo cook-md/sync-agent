@@ -245,11 +245,41 @@ impl Daemon {
             }
         };
 
-        // Run the tray (this blocks)
+        // Run the tray event loop.
+        // On Linux, tray.run() blocks with std::thread::sleep in a loop. Running it
+        // directly on a tokio worker thread starves the I/O driver (epoll), which
+        // prevents TcpListener::accept() from completing in the auth callback listener
+        // — especially on machines with few CPU cores. Move it to the blocking thread
+        // pool so tokio workers stay free for async I/O.
+        // On macOS/Windows, tray.run() uses a native event loop (winit) that must run
+        // on the main thread anyway, so we keep the direct call.
         info!("Starting system tray event loop...");
-        if let Err(e) = tray.run() {
-            log::error!("System tray event loop failed: {}", e);
-            return Err(e);
+
+        #[cfg(target_os = "linux")]
+        {
+            let tray_result = tokio::task::spawn_blocking(move || tray.run()).await;
+            match tray_result {
+                Ok(Err(e)) => {
+                    log::error!("System tray event loop failed: {}", e);
+                    return Err(e);
+                }
+                Err(e) => {
+                    log::error!("System tray task panicked: {}", e);
+                    return Err(crate::error::SyncError::Other(format!(
+                        "Tray task panicked: {}",
+                        e
+                    )));
+                }
+                Ok(Ok(())) => {}
+            }
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            if let Err(e) = tray.run() {
+                log::error!("System tray event loop failed: {}", e);
+                return Err(e);
+            }
         }
 
         // Stop sync manager before cleanup
