@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.5](https://github.com/cook-md/sync-agent/compare/v0.9.4...v0.9.5) (2026-03-12)
+
+
+### Bug Fixes
+
+* remove PID file before exec() so app restarts after update on Linux ([3297054](https://github.com/cook-md/sync-agent/commit/3297054d63b394d059725d343cbdea40bbf3fe48))
+
 ## [0.9.4](https://github.com/cook-md/sync-agent/compare/v0.9.3...v0.9.4) (2026-03-11)
 
 
