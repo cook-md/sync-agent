@@ -151,55 +151,48 @@ impl TrayState {
                     crate::notifications::show_notification("Cook Sync", "Checking for updates...");
 
                 let config_clone = Arc::clone(&self.config);
-                let runtime_handle = self.runtime_handle.clone();
 
-                std::thread::spawn(move || {
-                    runtime_handle.block_on(async {
-                        // Get auto_update setting
-                        let auto_update = config_clone.settings().lock().unwrap().auto_update;
+                self.runtime_handle.spawn(async move {
+                    // Get auto_update setting
+                    let auto_update = config_clone.settings().lock().unwrap().auto_update;
 
-                        // Check for updates
-                        match crate::updater::check_for_updates(auto_update).await {
-                            Ok(Some(version)) => {
-                                if auto_update {
-                                    let _ = crate::notifications::show_notification(
-                                        "Cook Sync Updated",
-                                        &format!(
-                                            "Updated to version {}. Restarting...",
-                                            version
-                                        ),
-                                    );
-
-                                    // Brief delay so user can see the notification
-                                    tokio::time::sleep(tokio::time::Duration::from_secs(2))
-                                        .await;
-
-                                    crate::updater::restart_app();
-                                } else {
-                                    let _ = crate::notifications::show_notification(
-                                        "Cook Sync Update Available",
-                                        &format!(
-                                            "Version {} is available. Enable auto-update to install.",
-                                            version
-                                        ),
-                                    );
-                                }
-                            }
-                            Ok(None) => {
+                    // Check for updates
+                    match crate::updater::check_for_updates(auto_update).await {
+                        Ok(Some(version)) => {
+                            if auto_update {
                                 let _ = crate::notifications::show_notification(
-                                    "Cook Sync",
-                                    "You're running the latest version.",
+                                    "Cook Sync Updated",
+                                    &format!("Updated to version {}. Restarting...", version),
                                 );
-                            }
-                            Err(e) => {
-                                error!("Update check failed: {}", e);
+
+                                // Brief delay so user can see the notification
+                                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+                                crate::updater::restart_app();
+                            } else {
                                 let _ = crate::notifications::show_notification(
-                                    "Cook Sync Update Check Failed",
-                                    &format!("Failed to check for updates: {}", e),
+                                    "Cook Sync Update Available",
+                                    &format!(
+                                        "Version {} is available. Enable auto-update to install.",
+                                        version
+                                    ),
                                 );
                             }
                         }
-                    });
+                        Ok(None) => {
+                            let _ = crate::notifications::show_notification(
+                                "Cook Sync",
+                                "You're running the latest version.",
+                            );
+                        }
+                        Err(e) => {
+                            error!("Update check failed: {}", e);
+                            let _ = crate::notifications::show_notification(
+                                "Cook Sync Update Check Failed",
+                                &format!("Failed to check for updates: {}", e),
+                            );
+                        }
+                    }
                 });
             }
             TrayEvent::About => {
@@ -237,16 +230,16 @@ impl TrayState {
             }
             TrayEvent::LoginLogout => {
                 let is_logged_in = *self.is_logged_in.lock().unwrap();
-                let auth_manager = Arc::clone(&self.auth_manager);
-                let sync_manager = Arc::clone(&self.sync_manager);
-                let config = Arc::clone(&self.config);
-                let runtime_handle = self.runtime_handle.clone();
-                let user_email_clone = Arc::clone(&self.user_email);
-                let is_logged_in_clone = Arc::clone(&self.is_logged_in);
 
-                std::thread::spawn(move || {
-                    if is_logged_in {
-                        // Logout (not async)
+                if is_logged_in {
+                    // Logout — synchronous part in a thread to not block D-Bus
+                    let auth_manager = Arc::clone(&self.auth_manager);
+                    let sync_manager = Arc::clone(&self.sync_manager);
+                    let runtime_handle = self.runtime_handle.clone();
+                    let user_email_clone = Arc::clone(&self.user_email);
+                    let is_logged_in_clone = Arc::clone(&self.is_logged_in);
+
+                    std::thread::spawn(move || {
                         info!("Logout requested");
                         if let Err(e) = auth_manager.logout() {
                             error!("Failed to logout: {}", e);
@@ -255,46 +248,51 @@ impl TrayState {
                             *is_logged_in_clone.lock().unwrap() = false;
                             info!("Logged out successfully");
 
-                            // Stop sync manager
-                            runtime_handle.block_on(async {
+                            // Stop sync manager on the tokio runtime
+                            runtime_handle.spawn(async move {
                                 if let Err(e) = sync_manager.stop().await {
                                     error!("Failed to stop sync manager: {}", e);
                                 }
                             });
                         }
-                    } else {
-                        // Login (async)
-                        info!("Login requested");
-                        runtime_handle.block_on(async {
-                            match auth_manager.browser_login().await {
-                                Ok(()) => {
-                                    info!("Login completed successfully");
+                    });
+                } else {
+                    // Login — use runtime_handle.spawn() so the TcpListener
+                    // callback server runs natively on the tokio I/O reactor
+                    let auth_manager = Arc::clone(&self.auth_manager);
+                    let sync_manager = Arc::clone(&self.sync_manager);
+                    let config = Arc::clone(&self.config);
+                    let user_email_clone = Arc::clone(&self.user_email);
+                    let is_logged_in_clone = Arc::clone(&self.is_logged_in);
 
-                                    // Get session email
-                                    if let Some(session) = auth_manager.get_session() {
-                                        *user_email_clone.lock().unwrap() = session.email.clone();
-                                        *is_logged_in_clone.lock().unwrap() = true;
-                                        if let Some(ref email) = session.email {
-                                            info!("Logged in as: {}", email);
-                                        }
+                    info!("Login requested");
+                    self.runtime_handle.spawn(async move {
+                        match auth_manager.browser_login().await {
+                            Ok(()) => {
+                                info!("Login completed successfully");
 
-                                        // Start sync manager if recipes folder is configured
-                                        if config.settings().lock().unwrap().recipes_dir.is_some() {
-                                            if let Err(e) = sync_manager.start().await {
-                                                error!("Failed to start sync manager: {}", e);
-                                            }
+                                // Get session email
+                                if let Some(session) = auth_manager.get_session() {
+                                    *user_email_clone.lock().unwrap() = session.email.clone();
+                                    *is_logged_in_clone.lock().unwrap() = true;
+                                    if let Some(ref email) = session.email {
+                                        info!("Logged in as: {}", email);
+                                    }
+
+                                    // Start sync manager if recipes folder is configured
+                                    if config.settings().lock().unwrap().recipes_dir.is_some() {
+                                        if let Err(e) = sync_manager.start().await {
+                                            error!("Failed to start sync manager: {}", e);
                                         }
                                     }
                                 }
-                                Err(e) => {
-                                    error!("Login failed: {}", e);
-                                }
                             }
-                        });
-                    }
-
-                    // Menu will auto-update on next click
-                });
+                            Err(e) => {
+                                error!("Login failed: {}", e);
+                            }
+                        }
+                    });
+                }
             }
         }
     }
