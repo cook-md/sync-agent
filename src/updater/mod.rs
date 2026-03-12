@@ -132,6 +132,13 @@ pub fn restart_app() -> ! {
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::env::current_exe().unwrap_or_default());
 
+        // Remove the PID file before exec(). exec() preserves the PID, so
+        // the new process running `start` would see its own PID in the file
+        // and think a daemon is already running, causing it to exit immediately.
+        if let Ok(paths) = crate::config::paths::AppPaths::new() {
+            let _ = std::fs::remove_file(&paths.pid_file);
+        }
+
         info!("Restarting via exec: {:?}", exe);
         let err = std::process::Command::new(&exe)
             .args(["start"])
