@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.6](https://github.com/cook-md/sync-agent/compare/v0.9.5...v0.9.6) (2026-03-12)
+
+
+### Bug Fixes
+
+* move Linux tray loop to blocking thread to unblock tokio I/O ([9c9c6f8](https://github.com/cook-md/sync-agent/commit/9c9c6f84e78e3f776fafe2240119d3c1a1bd820b))
+* move Linux tray loop to blocking thread to unblock tokio I/O ([d1dac4b](https://github.com/cook-md/sync-agent/commit/d1dac4b3eb682531b806507e602ffd142d3c35fc))
+
 ## [0.9.5](https://github.com/cook-md/sync-agent/compare/v0.9.4...v0.9.5) (2026-03-12)
 
 
