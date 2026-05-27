@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.7](https://github.com/cook-md/sync-agent/compare/v0.9.6...v0.9.7) (2026-05-27)
+
+
+### Bug Fixes
+
+* bump cooklang-sync-client to 0.5.0 ([a4ccf0d](https://github.com/cook-md/sync-agent/commit/a4ccf0daa34dc5173a64e55610827524b35eb8ea))
+* Linux tray starves tokio I/O reactor, breaking login and updates ([6e80595](https://github.com/cook-md/sync-agent/commit/6e805957ca39d447a1c1b8942fc8196de86ce0a1))
+* use runtime_handle.spawn() for Linux tray async tasks ([4b0b0f2](https://github.com/cook-md/sync-agent/commit/4b0b0f2e64b6d5a78434c5ff4da3cd3b988f9885))
+* use spawn() instead of block_on() in SetFolder handler ([f1dad84](https://github.com/cook-md/sync-agent/commit/f1dad8495f8ba7132831b3d0814631fced9d3dcd))
+
 ## [0.9.6](https://github.com/cook-md/sync-agent/compare/v0.9.5...v0.9.6) (2026-03-12)
 
 
