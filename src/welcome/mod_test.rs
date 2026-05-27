@@ -165,6 +165,27 @@ mod welcome_result_tests {
     }
 
     #[test]
+    fn test_welcome_result_default_impl_safe_for_fallback() {
+        // The fallback path (used when the welcome screen fails to display) relies
+        // on WelcomeResult::default(). The defaults must be safe for an unattended
+        // start: no login attempt, no surprise filesystem path, but
+        // auto-start/auto-update enabled so behavior matches a user who clicked
+        // through the welcome screen accepting defaults.
+        let result = WelcomeResult::default();
+
+        assert!(
+            !result.login_requested,
+            "Default must not trigger a browser login on fallback"
+        );
+        assert!(
+            result.recipes_dir.is_none(),
+            "Default must not pick a recipes directory for the user"
+        );
+        assert!(result.auto_start, "Default should enable auto-start");
+        assert!(result.auto_update, "Default should enable auto-update");
+    }
+
+    #[test]
     fn test_welcome_result_only_login() {
         // Test that user can choose only to login
         let result = WelcomeResult {

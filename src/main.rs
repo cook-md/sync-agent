@@ -138,6 +138,34 @@ async fn main() -> Result<()> {
     }
 }
 
+/// Notify the user that the welcome screen failed to display, and explain the
+/// fallback path (use the system tray icon for login + configuration). On Linux
+/// we show a zenity info dialog when available so users who launched from a
+/// file manager (no terminal attached) still see the message.
+fn notify_welcome_failed(error: &str) {
+    let body = format!(
+        "Cook Sync's welcome screen could not be displayed:\n\n{}\n\n\
+         Cook Sync is still running — use the system tray icon to log in \
+         and choose your recipes folder.",
+        error
+    );
+
+    eprintln!("\n⚠ {}", body.replace("\n\n", "\n").replace("\n", "\n  "));
+
+    #[cfg(target_os = "linux")]
+    {
+        let _ = platform::linux::desktop_integration::clean_appimage_env("zenity")
+            .args([
+                "--info",
+                "--title=Cook Sync",
+                "--no-markup",
+                "--text",
+                &body,
+            ])
+            .spawn();
+    }
+}
+
 async fn start_daemon() -> Result<()> {
     let config = config::Config::new()?;
 
@@ -157,10 +185,20 @@ async fn start_daemon() -> Result<()> {
     if is_first_run {
         info!("First run detected, showing welcome screen");
 
-        // Show welcome screen (blocks until closed)
-        let welcome_result = welcome::show_welcome_screen()?;
+        // A UI/graphics initialization failure (e.g. glutin can't find an EGL
+        // config on some Wayland setups) must not crash the daemon — sync works
+        // fine without the welcome screen via the system tray and CLI.
+        let welcome_result = match welcome::show_welcome_screen() {
+            Ok(result) => result,
+            Err(e) => {
+                error!("Welcome screen failed to display: {}", e);
+                notify_welcome_failed(&e.to_string());
+                welcome::WelcomeResult::default()
+            }
+        };
 
-        // Mark welcome as shown and save any user selections
+        // Mark welcome as shown even on failure so a broken graphics stack
+        // doesn't repeatedly crash on subsequent launches.
         config.update_settings(|s| {
             s.welcome_shown = true;
 

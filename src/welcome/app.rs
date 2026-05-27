@@ -35,6 +35,17 @@ pub struct WelcomeResult {
     pub auto_update: bool,
 }
 
+impl Default for WelcomeResult {
+    fn default() -> Self {
+        Self {
+            login_requested: false,
+            recipes_dir: None,
+            auto_start: true,
+            auto_update: true,
+        }
+    }
+}
+
 pub struct WelcomeApp {
     pub state: WelcomeState,
     theme: AppTheme,
