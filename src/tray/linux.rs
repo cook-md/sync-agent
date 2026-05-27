@@ -118,8 +118,9 @@ impl TrayState {
 
                         *folder_path_clone.lock().unwrap() = Some(path.display().to_string());
 
-                        // Start sync with new folder
-                        runtime_handle_clone.block_on(async {
+                        // Start sync with new folder — use spawn() not block_on() so the
+                        // tokio reactor can drive any I/O the sync startup performs
+                        runtime_handle_clone.spawn(async move {
                             if let Err(e) = sync_manager_clone.start().await {
                                 error!("Failed to start sync: {}", e);
                             }
