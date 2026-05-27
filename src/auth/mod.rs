@@ -104,6 +104,50 @@ impl AuthManager {
     }
 
     pub async fn browser_login(&self) -> Result<()> {
+        #[cfg(target_os = "linux")]
+        fn show_login_url_dialog(url: &str) {
+            // Best-effort: copy the URL to the clipboard via xclip / wl-copy so the
+            // user can paste it without retyping. Both are common but optional.
+            use std::io::Write;
+            use std::process::Stdio;
+            let mut clipboard_copied = false;
+            for (program, args) in [
+                ("wl-copy", &[][..]),
+                ("xclip", &["-selection", "clipboard"][..]),
+            ] {
+                let mut cmd =
+                    crate::platform::linux::desktop_integration::clean_appimage_env(program);
+                cmd.args(args).stdin(Stdio::piped()).stdout(Stdio::null());
+                if let Ok(mut child) = cmd.spawn() {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        let _ = stdin.write_all(url.as_bytes());
+                    }
+                    if let Ok(status) = child.wait() {
+                        if status.success() {
+                            clipboard_copied = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            let body = if clipboard_copied {
+                format!("Couldn't open a browser automatically.\n\nThe sign-in URL has been copied to your clipboard — paste it into any browser to continue.\n\n{url}")
+            } else {
+                format!("Couldn't open a browser automatically.\n\nOpen this URL in any browser to continue sign-in:\n\n{url}")
+            };
+
+            let _ = crate::platform::linux::desktop_integration::clean_appimage_env("zenity")
+                .args([
+                    "--info",
+                    "--title=Cook Sync — Sign In",
+                    "--no-markup",
+                    "--text",
+                    &body,
+                ])
+                .status();
+        }
+
         use std::time::Duration;
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
         use tokio::net::TcpListener;
@@ -129,18 +173,28 @@ impl AuthManager {
             format!("{base_url}/auth/desktops?callback={encoded_callback}&state={state}");
 
         info!("Opening browser for authentication: {login_url}");
+
+        // Print the URL up front so terminal users can copy it even if the
+        // automatic browser open succeeds — and especially if it doesn't.
+        println!("\nIf your browser doesn't open automatically, visit:\n");
+        println!("    {login_url}\n");
+
         if let Err(e) = open::that(&login_url) {
             // Don't abort: some Linux setups (e.g. Pop_OS/Cosmic) have a broken
             // xdg-open that fails even when a usable browser is installed.
             // Keep the local listener alive so the user can paste the URL manually.
             error!("Failed to open browser automatically: {e}");
-            println!("\nCould not open a browser automatically.");
-            println!("Please open this URL in your browser to continue login:\n");
-            println!("    {login_url}\n");
+
+            // Notification — works on all platforms, but body may be truncated.
             let _ = crate::notifications::show_notification(
-                "Cook Sync — open this URL to sign in",
-                &login_url,
+                "Cook Sync — couldn't open browser",
+                "Sign-in URL has been shown on screen. Open it in any browser to continue.",
             );
+
+            // On Linux the daemon has no visible stdout when launched from the
+            // tray, so show a selectable dialog with the URL as a GUI fallback.
+            #[cfg(target_os = "linux")]
+            show_login_url_dialog(&login_url);
         }
 
         // Wait for callback (with timeout)
