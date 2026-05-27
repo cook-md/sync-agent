@@ -129,7 +129,19 @@ impl AuthManager {
             format!("{base_url}/auth/desktops?callback={encoded_callback}&state={state}");
 
         info!("Opening browser for authentication: {login_url}");
-        open::that(&login_url)?;
+        if let Err(e) = open::that(&login_url) {
+            // Don't abort: some Linux setups (e.g. Pop_OS/Cosmic) have a broken
+            // xdg-open that fails even when a usable browser is installed.
+            // Keep the local listener alive so the user can paste the URL manually.
+            error!("Failed to open browser automatically: {e}");
+            println!("\nCould not open a browser automatically.");
+            println!("Please open this URL in your browser to continue login:\n");
+            println!("    {login_url}\n");
+            let _ = crate::notifications::show_notification(
+                "Cook Sync — open this URL to sign in",
+                &login_url,
+            );
+        }
 
         // Wait for callback (with timeout)
         let result = timeout(Duration::from_secs(300), async {
