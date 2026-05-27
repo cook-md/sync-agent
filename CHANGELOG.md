@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.8](https://github.com/cook-md/sync-agent/compare/v0.9.7...v0.9.8) (2026-05-27)
+
+
+### Bug Fixes
+
+* keep auth listener alive when browser fails to open ([22f1dd1](https://github.com/cook-md/sync-agent/commit/22f1dd1460859bc4f26b5e8e4fd1570ac25287b7)), closes [#89](https://github.com/cook-md/sync-agent/issues/89)
+* keep auth listener alive when browser fails to open ([#89](https://github.com/cook-md/sync-agent/issues/89)) ([f867ee9](https://github.com/cook-md/sync-agent/commit/f867ee95adbc241d89cb6457e998170830f8a66a))
+* keep daemon running when welcome screen fails to initialize ([88f971a](https://github.com/cook-md/sync-agent/commit/88f971a874768b95a23b05351e249892b15c72c5))
+* keep daemon running when welcome screen fails to initialize ([4536e68](https://github.com/cook-md/sync-agent/commit/4536e6838f138f38f29bd0b3c48a7f71662d489e))
+* surface login URL via clipboard + zenity when browser open fails ([1a4b128](https://github.com/cook-md/sync-agent/commit/1a4b128a496df3e32de93c83321779a125a5fa73)), closes [#89](https://github.com/cook-md/sync-agent/issues/89)
+
 ## [0.9.7](https://github.com/cook-md/sync-agent/compare/v0.9.6...v0.9.7) (2026-05-27)
 
 
