@@ -43,8 +43,12 @@ enum Commands {
     /// Show sync status
     Status,
 
-    /// Open browser for login
-    Login,
+    /// Log in (opens a browser; falls back to a device code on headless hosts)
+    Login {
+        /// Use the headless device-code flow (no browser); for servers / Docker
+        #[arg(long)]
+        headless: bool,
+    },
 
     /// Logout and clear session
     Logout,
@@ -119,7 +123,7 @@ async fn main() -> Result<()> {
         Some(Commands::Daemon) => run_daemon().await,
         Some(Commands::Stop) => stop_daemon(),
         Some(Commands::Status) => show_status().await,
-        Some(Commands::Login) => login().await,
+        Some(Commands::Login { headless }) => login(headless).await,
         Some(Commands::Logout) => logout().await,
         Some(Commands::Config {
             recipes_dir,
@@ -216,7 +220,7 @@ async fn start_daemon() -> Result<()> {
             println!("Please complete login in your browser...");
 
             // Perform login synchronously before starting daemon
-            match login().await {
+            match login(false).await {
                 Ok(()) => {
                     println!("✓ Login successful!");
                 }
@@ -474,8 +478,6 @@ async fn show_status() -> Result<()> {
 
 /// Decide whether `cook-sync login` should use the headless device-code flow
 /// instead of the browser/loopback flow.
-// Wired into `login()` in a later step (Task 5); allow until then.
-#[allow(dead_code)]
 fn prefer_device_flow(headless_flag: bool) -> bool {
     let docker = std::path::Path::new("/.dockerenv").exists();
     let is_linux = cfg!(target_os = "linux");
@@ -499,21 +501,31 @@ fn prefer_device_flow_from(
     is_linux && !has_display
 }
 
-async fn login() -> Result<()> {
-    println!("Opening browser for login...");
-
+async fn login(headless: bool) -> Result<()> {
     let config = config::Config::new()?;
     let api_endpoint = config::settings::Settings::get_api_endpoint();
     println!("Using API endpoint: {}", api_endpoint);
     let api = api::CookApi::new(api_endpoint)?;
     let auth = auth::AuthManager::new(config.paths(), Arc::new(api))?;
 
-    // Perform browser-based login
-    match auth.browser_login().await {
+    let use_device = prefer_device_flow(headless);
+
+    let result = if use_device {
+        println!("Starting headless device-code login...");
+        auth.device_login().await
+    } else {
+        println!("Opening browser for login...");
+        auth.browser_login().await
+    };
+
+    match result {
         Ok(()) => {
-            println!("Successfully authenticated!");
-            if let Some(session) = auth.get_session() {
-                println!("Logged in as: {}", session.email.unwrap_or(session.user_id));
+            // device_login already prints "Logged in as ...".
+            if !use_device {
+                println!("Successfully authenticated!");
+                if let Some(session) = auth.get_session() {
+                    println!("Logged in as: {}", session.email.unwrap_or(session.user_id));
+                }
             }
         }
         Err(e) => {
