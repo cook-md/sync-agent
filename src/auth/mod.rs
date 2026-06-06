@@ -5,11 +5,13 @@ pub mod secure_session;
 use crate::api::CookApi;
 use crate::config::AppPaths;
 use crate::error::{Result, SyncError};
+use chrono::Utc;
 use log::{debug, error, info};
 use std::sync::{Arc, Mutex};
 use tokio::time::{interval, Duration};
 
 use self::device_flow::{client_name, poll_for_token, request_device_code};
+use self::jwt::refresh_due;
 use self::secure_session::SecureSession;
 
 pub struct AuthManager {
@@ -35,6 +37,13 @@ impl AuthManager {
     pub fn set_session(&self, jwt_token: String) -> Result<()> {
         let session = SecureSession::new(jwt_token)?;
         session.save()?;
+
+        // Best-effort: record when this token was obtained. A missing timestamp
+        // simply makes the next hourly tick treat the token as refresh-due, which
+        // is safe — so a write failure here must not fail login/refresh.
+        if let Err(e) = SecureSession::save_last_refresh(Utc::now().timestamp()) {
+            error!("Failed to record last_refresh timestamp: {e}");
+        }
 
         *self.session.lock().unwrap() = Some(session);
         Ok(())
@@ -67,29 +76,39 @@ impl AuthManager {
 
                 if let Some(session) = self.get_session() {
                     match session.jwt_token() {
-                        Ok(jwt) if jwt.should_refresh() => {
-                            info!("JWT token needs refresh");
+                        Ok(jwt) => {
+                            let last_refresh =
+                                SecureSession::load_last_refresh().unwrap_or_else(|e| {
+                                    error!("Failed to load last_refresh timestamp: {e}");
+                                    None
+                                });
 
-                            match self.api.refresh_token(&session.jwt).await {
-                                Ok(new_token) => {
-                                    if let Err(e) = self.set_session(new_token) {
-                                        error!("Failed to save refreshed token: {e}");
-                                    } else {
-                                        info!("JWT token refreshed successfully");
+                            if refresh_due(&jwt, last_refresh, Utc::now().timestamp()) {
+                                info!("JWT token refresh due");
+
+                                match self.api.refresh_token(&session.jwt).await {
+                                    Ok(new_token) => {
+                                        if let Err(e) = self.set_session(new_token) {
+                                            error!("Failed to save refreshed token: {e}");
+                                        } else {
+                                            info!("JWT token refreshed successfully");
+                                        }
                                     }
-                                }
-                                Err(e) => {
-                                    error!("Failed to refresh JWT token: {e}");
+                                    Err(e) => {
+                                        error!("Failed to refresh JWT token: {e}");
 
-                                    // Clear invalid session
-                                    if let Err(e) = self.clear_session() {
-                                        error!("Failed to clear invalid session: {e}");
+                                        // Only force re-login when the token is genuinely near
+                                        // expiry. A transient failure during daily rotation (the
+                                        // token still has days of life) keeps the session and
+                                        // retries on the next tick.
+                                        if jwt.should_refresh() {
+                                            if let Err(e) = self.clear_session() {
+                                                error!("Failed to clear invalid session: {e}");
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                        Ok(_) => {
-                            // Token still valid
                         }
                         Err(e) => {
                             error!("Invalid JWT token: {e}");

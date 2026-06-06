@@ -213,3 +213,56 @@ fn test_secure_session_with_integer_user_id() {
     let session = session.unwrap();
     assert_eq!(session.user_id, "12345");
 }
+
+#[test]
+fn test_last_refresh_save_and_load() {
+    let mock = MockKeyring::new();
+
+    assert!(
+        SecureSession::save_last_refresh_with_mock(&mock, 1_700_000_000).is_ok(),
+        "Should save last_refresh timestamp"
+    );
+
+    let loaded = SecureSession::load_last_refresh_with_mock(&mock);
+    assert!(loaded.is_ok(), "Should load last_refresh without error");
+    assert_eq!(loaded.unwrap(), Some(1_700_000_000));
+}
+
+#[test]
+fn test_last_refresh_missing_returns_none() {
+    let mock = MockKeyring::new();
+
+    let loaded = SecureSession::load_last_refresh_with_mock(&mock);
+    assert!(loaded.is_ok());
+    assert_eq!(
+        loaded.unwrap(),
+        None,
+        "Missing timestamp should load as None"
+    );
+}
+
+#[test]
+fn test_delete_clears_last_refresh() {
+    let mock = MockKeyring::new();
+
+    // Save a full session plus the timestamp
+    let jwt = create_test_jwt("user", None, 3600);
+    let session = SecureSession {
+        jwt,
+        user_id: "user".to_string(),
+        email: None,
+    };
+    assert!(session.save_with_mock(&mock).is_ok());
+    assert!(SecureSession::save_last_refresh_with_mock(&mock, 1_700_000_000).is_ok());
+
+    // Delete the session
+    assert!(SecureSession::delete_with_mock(&mock).is_ok());
+
+    // Timestamp must be gone too
+    let loaded = SecureSession::load_last_refresh_with_mock(&mock);
+    assert_eq!(
+        loaded.unwrap(),
+        None,
+        "delete should also clear last_refresh"
+    );
+}
