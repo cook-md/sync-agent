@@ -76,3 +76,22 @@ impl JwtToken {
         self.claims.uid.as_string()
     }
 }
+
+/// Decide whether a token refresh should be attempted now.
+///
+/// Returns true when the token is near expiry (existing safety net), when the
+/// last-refresh time is unknown, or when at least 24 hours have elapsed since the
+/// last refresh (daily rotation). The 24h check uses wall-clock `now` so it stays
+/// correct across machine sleep.
+pub fn refresh_due(jwt: &JwtToken, last_refresh: Option<i64>, now: i64) -> bool {
+    const DAILY_SECS: i64 = 24 * 60 * 60;
+
+    if jwt.should_refresh() {
+        return true;
+    }
+
+    match last_refresh {
+        None => true,
+        Some(ts) => now - ts >= DAILY_SECS,
+    }
+}
