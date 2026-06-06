@@ -295,8 +295,10 @@ impl AuthManager {
         let cancel = CancellationToken::new();
         let cancel_for_signal = cancel.clone();
         tokio::spawn(async move {
-            let _ = tokio::signal::ctrl_c().await;
-            cancel_for_signal.cancel();
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => cancel_for_signal.cancel(),
+                _ = cancel_for_signal.cancelled() => {}
+            }
         });
 
         // Print a dot every second while waiting, so the user sees progress.
@@ -335,8 +337,11 @@ impl AuthManager {
         let jwt = jwt_result?;
         self.set_session(jwt)?;
 
-        if let Some(session) = self.get_session() {
-            println!("Logged in as {}", session.email.unwrap_or(session.user_id));
+        match self.get_session() {
+            Some(session) => {
+                println!("Logged in as {}", session.email.unwrap_or(session.user_id))
+            }
+            None => println!("Logged in"),
         }
 
         Ok(())
