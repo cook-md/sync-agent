@@ -1,4 +1,4 @@
-use super::{client_name, interpret_token_response, PollOutcome};
+use super::{client_name, interpret_token_response, server_host_label, PollOutcome};
 
 #[test]
 fn success_body_yields_token() {
@@ -63,4 +63,10 @@ fn client_name_includes_version_and_os() {
     let name = client_name();
     assert!(name.starts_with("Cook Sync "));
     assert!(name.contains(std::env::consts::OS));
+}
+
+#[test]
+fn server_host_label_is_known_value() {
+    let label = server_host_label();
+    assert!(label == "docker" || label == "server");
 }

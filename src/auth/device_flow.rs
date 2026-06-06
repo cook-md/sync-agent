@@ -87,7 +87,7 @@ pub fn interpret_token_response(is_success: bool, body: &str) -> PollOutcome {
 }
 
 /// Builds the `client_name` sent to cook.md; identifies the device on the
-/// approval screen. E.g. `"Cook Sync 0.6.0 (linux/docker)"`.
+/// approval screen. E.g. `"Cook Sync 0.6.0 (linux/server)"`.
 pub fn client_name() -> String {
     format!(
         "Cook Sync {} ({}/{})",
