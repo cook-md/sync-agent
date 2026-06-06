@@ -86,6 +86,88 @@ pub fn interpret_token_response(is_success: bool, body: &str) -> PollOutcome {
     }
 }
 
+/// POST `/oauth/device/code`. `base_url` is the site root (no `/api` suffix).
+pub async fn request_device_code(
+    client: &reqwest::Client,
+    base_url: &str,
+    client_name: &str,
+) -> Result<DeviceCodeResponse> {
+    let url = format!("{base_url}/oauth/device/code");
+    let resp = client
+        .post(&url)
+        .json(&DeviceCodeRequest { client_name })
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(SyncError::Other(format!(
+            "device code request failed: HTTP {status}: {body}"
+        )));
+    }
+
+    Ok(resp.json::<DeviceCodeResponse>().await?)
+}
+
+/// Poll `/oauth/device/token` until approved, denied, expired, or cancelled.
+/// Honors `slow_down` (interval += 5s) and the `expires_at` deadline.
+pub async fn poll_for_token(
+    client: &reqwest::Client,
+    base_url: &str,
+    device_code: &str,
+    mut interval: Duration,
+    expires_at: Instant,
+    cancel: CancellationToken,
+) -> Result<String> {
+    let url = format!("{base_url}/oauth/device/token");
+
+    loop {
+        if Instant::now() >= expires_at {
+            return Err(SyncError::Other(
+                "Code expired - run `cook-sync login` again.".to_string(),
+            ));
+        }
+
+        tokio::select! {
+            _ = cancel.cancelled() => {
+                return Err(SyncError::Other("Cancelled.".to_string()));
+            }
+            _ = tokio::time::sleep(interval) => {}
+        }
+
+        let resp = client
+            .post(&url)
+            .json(&TokenRequest {
+                grant_type: GRANT_TYPE,
+                device_code,
+            })
+            .send()
+            .await?;
+
+        let is_success = resp.status().is_success();
+        let body = resp.text().await.unwrap_or_default();
+
+        match interpret_token_response(is_success, &body) {
+            PollOutcome::Token(jwt) => return Ok(jwt),
+            PollOutcome::Pending => continue,
+            PollOutcome::SlowDown => interval += Duration::from_secs(5),
+            PollOutcome::Denied => {
+                return Err(SyncError::Other("Authorization denied.".to_string()));
+            }
+            PollOutcome::Expired => {
+                return Err(SyncError::Other(
+                    "Code expired - run `cook-sync login` again.".to_string(),
+                ));
+            }
+            PollOutcome::Bad(msg) => {
+                error!("Device token poll: {msg}");
+                return Err(SyncError::Other(format!("Login failed: {msg}")));
+            }
+        }
+    }
+}
+
 /// Builds the `client_name` sent to cook.md; identifies the device on the
 /// approval screen. E.g. `"Cook Sync 0.6.0 (linux/server)"`.
 pub fn client_name() -> String {
