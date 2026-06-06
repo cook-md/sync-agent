@@ -204,3 +204,86 @@ fn test_user_id_as_string() {
     let str_id = UserId::String("user_123".to_string());
     assert_eq!(str_id.as_string(), "user_123");
 }
+
+#[test]
+fn test_refresh_due_when_last_refresh_unknown() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    // Token far from expiry (10 days out)
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    assert!(
+        refresh_due(&jwt, None, now),
+        "Unknown last_refresh should be treated as due"
+    );
+}
+
+#[test]
+fn test_refresh_due_recent_refresh_far_from_expiry() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    // Refreshed 1 hour ago
+    assert!(
+        !refresh_due(&jwt, Some(now - 3600), now),
+        "Recently refreshed token far from expiry should not be due"
+    );
+}
+
+#[test]
+fn test_refresh_due_after_24h() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    // Refreshed 25 hours ago
+    assert!(
+        refresh_due(&jwt, Some(now - 25 * 3600), now),
+        "Token refreshed over 24h ago should be due"
+    );
+}
+
+#[test]
+fn test_refresh_due_near_expiry_overrides_recent_refresh() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    // Token expires in 30 minutes (within should_refresh's 1h window)
+    let claims = json!({ "uid": "user", "exp": now + 1800 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    // Even though refreshed 1 minute ago, near-expiry safety net wins
+    assert!(
+        refresh_due(&jwt, Some(now - 60), now),
+        "Near-expiry safety net should force a refresh"
+    );
+}
+
+#[test]
+fn test_refresh_due_exactly_24h() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    assert!(
+        refresh_due(&jwt, Some(now - 86400), now),
+        "Exactly 24h elapsed should be due"
+    );
+}
+
+#[test]
+fn test_refresh_due_one_second_short_of_24h() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    assert!(
+        !refresh_due(&jwt, Some(now - 86399), now),
+        "One second short of 24h should not be due"
+    );
+}
