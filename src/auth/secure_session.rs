@@ -21,6 +21,7 @@ const SERVICE_NAME: &str = "cook.md-sync-agent";
 const JWT_KEY: &str = "jwt_token";
 const USER_ID_KEY: &str = "user_id";
 const EMAIL_KEY: &str = "user_email";
+const REFRESH_KEY: &str = "last_refresh";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecureSession {
@@ -131,11 +132,35 @@ impl SecureSession {
         // Delete email
         store.delete_password(SERVICE_NAME, EMAIL_KEY)?;
 
+        // Delete last_refresh timestamp
+        store.delete_password(SERVICE_NAME, REFRESH_KEY)?;
+
         Ok(())
     }
 
     pub fn jwt_token(&self) -> Result<JwtToken> {
         JwtToken::from_string(self.jwt.clone())
+    }
+
+    pub fn save_last_refresh(timestamp: i64) -> Result<()> {
+        let store = keyring_store::default_store();
+        Self::save_last_refresh_with_store(&store, timestamp)
+    }
+
+    fn save_last_refresh_with_store(store: &dyn KeyringStore, timestamp: i64) -> Result<()> {
+        store.set_password(SERVICE_NAME, REFRESH_KEY, &timestamp.to_string())
+    }
+
+    pub fn load_last_refresh() -> Result<Option<i64>> {
+        let store = keyring_store::default_store();
+        Self::load_last_refresh_with_store(&store)
+    }
+
+    fn load_last_refresh_with_store(store: &dyn KeyringStore) -> Result<Option<i64>> {
+        match store.get_password(SERVICE_NAME, REFRESH_KEY)? {
+            Some(value) => Ok(value.parse::<i64>().ok()),
+            None => Ok(None),
+        }
     }
 }
 
@@ -152,5 +177,13 @@ impl SecureSession {
 
     pub fn delete_with_mock(mock: &MockKeyring) -> Result<()> {
         Self::delete_with_store(mock)
+    }
+
+    pub fn save_last_refresh_with_mock(mock: &MockKeyring, timestamp: i64) -> Result<()> {
+        Self::save_last_refresh_with_store(mock, timestamp)
+    }
+
+    pub fn load_last_refresh_with_mock(mock: &MockKeyring) -> Result<Option<i64>> {
+        Self::load_last_refresh_with_store(mock)
     }
 }
