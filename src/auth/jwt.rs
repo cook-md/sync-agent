@@ -83,6 +83,8 @@ impl JwtToken {
 /// last-refresh time is unknown, or when at least 24 hours have elapsed since the
 /// last refresh (daily rotation). The 24h check uses wall-clock `now` so it stays
 /// correct across machine sleep.
+/// `now` is used only for the 24h elapsed check; the near-expiry branch calls
+/// `jwt.should_refresh()`, which reads wall-clock time internally.
 pub fn refresh_due(jwt: &JwtToken, last_refresh: Option<i64>, now: i64) -> bool {
     const DAILY_SECS: i64 = 24 * 60 * 60;
 

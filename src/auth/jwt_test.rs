@@ -261,3 +261,29 @@ fn test_refresh_due_near_expiry_overrides_recent_refresh() {
         "Near-expiry safety net should force a refresh"
     );
 }
+
+#[test]
+fn test_refresh_due_exactly_24h() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    assert!(
+        refresh_due(&jwt, Some(now - 86400), now),
+        "Exactly 24h elapsed should be due"
+    );
+}
+
+#[test]
+fn test_refresh_due_one_second_short_of_24h() {
+    use crate::auth::jwt::refresh_due;
+    let now = chrono::Utc::now().timestamp();
+    let claims = json!({ "uid": "user", "exp": now + 10 * 86400 });
+    let jwt = JwtToken::from_string(create_jwt_with_claims(claims)).unwrap();
+
+    assert!(
+        !refresh_due(&jwt, Some(now - 86399), now),
+        "One second short of 24h should not be due"
+    );
+}
