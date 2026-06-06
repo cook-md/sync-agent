@@ -234,7 +234,11 @@ fn test_last_refresh_missing_returns_none() {
 
     let loaded = SecureSession::load_last_refresh_with_mock(&mock);
     assert!(loaded.is_ok());
-    assert_eq!(loaded.unwrap(), None, "Missing timestamp should load as None");
+    assert_eq!(
+        loaded.unwrap(),
+        None,
+        "Missing timestamp should load as None"
+    );
 }
 
 #[test]
