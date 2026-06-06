@@ -216,8 +216,6 @@ async fn start_daemon() -> Result<()> {
         // This ensures the daemon starts with authentication already complete
         if welcome_result.login_requested {
             info!("User requested login from welcome screen");
-            println!("Opening browser for login...");
-            println!("Please complete login in your browser...");
 
             // Perform login synchronously before starting daemon
             match login(false).await {
