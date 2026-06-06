@@ -95,6 +95,7 @@ pub async fn request_device_code(
     let url = format!("{base_url}/oauth/device/code");
     let resp = client
         .post(&url)
+        .timeout(Duration::from_secs(30))
         .json(&DeviceCodeRequest { client_name })
         .send()
         .await?;
@@ -138,6 +139,7 @@ pub async fn poll_for_token(
 
         let resp = client
             .post(&url)
+            .timeout(Duration::from_secs(30))
             .json(&TokenRequest {
                 grant_type: GRANT_TYPE,
                 device_code,
