@@ -75,7 +75,11 @@ impl AuthManager {
                 if let Some(session) = self.get_session() {
                     match session.jwt_token() {
                         Ok(jwt) => {
-                            let last_refresh = SecureSession::load_last_refresh().unwrap_or(None);
+                            let last_refresh =
+                                SecureSession::load_last_refresh().unwrap_or_else(|e| {
+                                    error!("Failed to load last_refresh timestamp: {e}");
+                                    None
+                                });
 
                             if refresh_due(&jwt, last_refresh, Utc::now().timestamp()) {
                                 info!("JWT token refresh due");
@@ -91,9 +95,14 @@ impl AuthManager {
                                     Err(e) => {
                                         error!("Failed to refresh JWT token: {e}");
 
-                                        // Clear invalid session
-                                        if let Err(e) = self.clear_session() {
-                                            error!("Failed to clear invalid session: {e}");
+                                        // Only force re-login when the token is genuinely near
+                                        // expiry. A transient failure during daily rotation (the
+                                        // token still has days of life) keeps the session and
+                                        // retries on the next tick.
+                                        if jwt.should_refresh() {
+                                            if let Err(e) = self.clear_session() {
+                                                error!("Failed to clear invalid session: {e}");
+                                            }
                                         }
                                     }
                                 }

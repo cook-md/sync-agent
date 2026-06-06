@@ -1,6 +1,6 @@
 use super::jwt::JwtToken;
 use crate::error::Result;
-use log::{error, info};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
 mod keyring_store;
@@ -158,7 +158,13 @@ impl SecureSession {
 
     fn load_last_refresh_with_store(store: &dyn KeyringStore) -> Result<Option<i64>> {
         match store.get_password(SERVICE_NAME, REFRESH_KEY)? {
-            Some(value) => Ok(value.parse::<i64>().ok()),
+            Some(value) => match value.parse::<i64>() {
+                Ok(timestamp) => Ok(Some(timestamp)),
+                Err(_) => {
+                    warn!("last_refresh value '{value}' is not a valid i64, treating as absent");
+                    Ok(None)
+                }
+            },
             None => Ok(None),
         }
     }
