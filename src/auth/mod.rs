@@ -1,3 +1,4 @@
+pub mod device_flow;
 pub mod jwt;
 pub mod secure_session;
 
@@ -9,6 +10,7 @@ use log::{debug, error, info};
 use std::sync::{Arc, Mutex};
 use tokio::time::{interval, Duration};
 
+use self::device_flow::{client_name, poll_for_token, request_device_code};
 use self::jwt::refresh_due;
 use self::secure_session::SecureSession;
 
@@ -269,6 +271,99 @@ impl AuthManager {
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SyncError::Other("Authentication timeout".to_string())),
         }
+    }
+
+    /// Headless OAuth 2.0 device-authorization-grant login (RFC 8628).
+    /// Prints a user code + verification URL, polls until approval, then saves
+    /// the session. Works with no browser/display (servers, Docker).
+    pub async fn device_login(&self) -> Result<()> {
+        use std::io::Write;
+        use std::time::{Duration, Instant};
+        use tokio_util::sync::CancellationToken;
+
+        // Device endpoints live at the site root, not under /api.
+        let api_endpoint = self.api.base_url();
+        let base_url = api_endpoint
+            .strip_suffix("/api")
+            .unwrap_or(api_endpoint)
+            .to_string();
+
+        let client = reqwest::Client::new();
+        let name = client_name();
+        let dc = request_device_code(&client, &base_url, &name).await?;
+
+        println!();
+        println!("To sign in, open this URL in any browser:");
+        println!();
+        println!("    {}", dc.verification_uri);
+        println!();
+        println!("and enter this code:");
+        println!();
+        println!("    {}", dc.user_code);
+        println!();
+
+        // Best-effort: open the browser to the prefilled URL. Harmless if it
+        // fails (no display) — the user already has the URL and code above.
+        if let Err(e) = open::that(&dc.verification_uri_complete) {
+            debug!("Could not open browser automatically: {e}");
+        }
+
+        print!("Waiting for authorization");
+        let _ = std::io::stdout().flush();
+
+        let cancel = CancellationToken::new();
+        let cancel_for_signal = cancel.clone();
+        tokio::spawn(async move {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => cancel_for_signal.cancel(),
+                _ = cancel_for_signal.cancelled() => {}
+            }
+        });
+
+        // Print a dot every second while waiting, so the user sees progress.
+        let dot_handle = {
+            let cancel = cancel.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::select! {
+                        _ = cancel.cancelled() => return,
+                        _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                            print!(".");
+                            let _ = std::io::stdout().flush();
+                        }
+                    }
+                }
+            })
+        };
+
+        let expires_at = Instant::now() + Duration::from_secs(dc.expires_in);
+        let interval = Duration::from_secs(dc.interval);
+
+        let jwt_result = poll_for_token(
+            &client,
+            &base_url,
+            &dc.device_code,
+            interval,
+            expires_at,
+            cancel.clone(),
+        )
+        .await;
+
+        cancel.cancel();
+        dot_handle.abort();
+        println!();
+
+        let jwt = jwt_result?;
+        self.set_session(jwt)?;
+
+        match self.get_session() {
+            Some(session) => {
+                println!("Logged in as {}", session.email.unwrap_or(session.user_id))
+            }
+            None => println!("Logged in"),
+        }
+
+        Ok(())
     }
 
     async fn handle_callback_request(

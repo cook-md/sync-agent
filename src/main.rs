@@ -43,8 +43,12 @@ enum Commands {
     /// Show sync status
     Status,
 
-    /// Open browser for login
-    Login,
+    /// Log in (opens a browser; falls back to a device code on headless hosts)
+    Login {
+        /// Use the headless device-code flow (no browser); for servers / Docker
+        #[arg(long)]
+        headless: bool,
+    },
 
     /// Logout and clear session
     Logout,
@@ -119,7 +123,7 @@ async fn main() -> Result<()> {
         Some(Commands::Daemon) => run_daemon().await,
         Some(Commands::Stop) => stop_daemon(),
         Some(Commands::Status) => show_status().await,
-        Some(Commands::Login) => login().await,
+        Some(Commands::Login { headless }) => login(headless).await,
         Some(Commands::Logout) => logout().await,
         Some(Commands::Config {
             recipes_dir,
@@ -212,11 +216,9 @@ async fn start_daemon() -> Result<()> {
         // This ensures the daemon starts with authentication already complete
         if welcome_result.login_requested {
             info!("User requested login from welcome screen");
-            println!("Opening browser for login...");
-            println!("Please complete login in your browser...");
 
             // Perform login synchronously before starting daemon
-            match login().await {
+            match login(false).await {
                 Ok(()) => {
                     println!("✓ Login successful!");
                 }
@@ -472,21 +474,56 @@ async fn show_status() -> Result<()> {
     Ok(())
 }
 
-async fn login() -> Result<()> {
-    println!("Opening browser for login...");
+/// Decide whether `cook-sync login` should use the headless device-code flow
+/// instead of the browser/loopback flow.
+fn prefer_device_flow(headless_flag: bool) -> bool {
+    let docker = std::path::Path::new("/.dockerenv").exists();
+    let is_linux = cfg!(target_os = "linux");
+    let has_display =
+        std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some();
+    prefer_device_flow_from(headless_flag, docker, is_linux, has_display)
+}
 
+/// Pure decision core, separated for testing.
+fn prefer_device_flow_from(
+    headless_flag: bool,
+    docker: bool,
+    is_linux: bool,
+    has_display: bool,
+) -> bool {
+    if headless_flag || docker {
+        return true;
+    }
+    // Auto-detect only on Linux: a Linux session with no X/Wayland display is
+    // headless. macOS/Windows always have a GUI, so never auto-switch there.
+    is_linux && !has_display
+}
+
+async fn login(headless: bool) -> Result<()> {
     let config = config::Config::new()?;
     let api_endpoint = config::settings::Settings::get_api_endpoint();
     println!("Using API endpoint: {}", api_endpoint);
     let api = api::CookApi::new(api_endpoint)?;
     let auth = auth::AuthManager::new(config.paths(), Arc::new(api))?;
 
-    // Perform browser-based login
-    match auth.browser_login().await {
+    let use_device = prefer_device_flow(headless);
+
+    let result = if use_device {
+        println!("Starting headless device-code login...");
+        auth.device_login().await
+    } else {
+        println!("Opening browser for login...");
+        auth.browser_login().await
+    };
+
+    match result {
         Ok(()) => {
-            println!("Successfully authenticated!");
-            if let Some(session) = auth.get_session() {
-                println!("Logged in as: {}", session.email.unwrap_or(session.user_id));
+            // device_login already prints "Logged in as ...".
+            if !use_device {
+                println!("Successfully authenticated!");
+                if let Some(session) = auth.get_session() {
+                    println!("Logged in as: {}", session.email.unwrap_or(session.user_id));
+                }
             }
         }
         Err(e) => {
@@ -977,5 +1014,46 @@ fn attach_parent_console() {
             winapi::um::processenv::SetStdHandle(winapi::um::winbase::STD_OUTPUT_HANDLE, h);
             winapi::um::processenv::SetStdHandle(winapi::um::winbase::STD_ERROR_HANDLE, h);
         }
+    }
+}
+
+#[cfg(test)]
+mod login_flow_tests {
+    use super::*;
+
+    #[test]
+    fn headless_flag_always_prefers_device_flow() {
+        assert!(prefer_device_flow_from(
+            true,  // headless flag
+            false, // docker
+            true,  // is_linux
+            true,  // has_display (would otherwise force browser)
+        ));
+    }
+
+    #[test]
+    fn docker_prefers_device_flow_without_flag() {
+        assert!(prefer_device_flow_from(false, true, true, true));
+    }
+
+    #[test]
+    fn linux_without_display_prefers_device_flow() {
+        assert!(prefer_device_flow_from(false, false, true, false));
+    }
+
+    #[test]
+    fn linux_with_display_uses_browser() {
+        assert!(!prefer_device_flow_from(false, false, true, true));
+    }
+
+    #[test]
+    fn non_linux_without_flag_uses_browser() {
+        // macOS/Windows: always a GUI session, no auto-detection.
+        assert!(!prefer_device_flow_from(false, false, false, false));
+    }
+
+    #[test]
+    fn non_linux_docker_still_prefers_device_flow() {
+        assert!(prefer_device_flow_from(false, true, false, true));
     }
 }
