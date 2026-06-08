@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.10.0](https://github.com/cook-md/sync-agent/compare/v0.9.8...v0.10.0) (2026-06-08)
+
+
+### Features
+
+* **auth:** add device_login terminal flow ([2ec6007](https://github.com/cook-md/sync-agent/commit/2ec60074be048f6dab39e39514a80e558c020754))
+* **auth:** add device-code request and token polling ([59a615a](https://github.com/cook-md/sync-agent/commit/59a615a8730829d8ad279490fef7992f7977df8a))
+* **auth:** add device-flow protocol types and token-response interpreter ([11ac30f](https://github.com/cook-md/sync-agent/commit/11ac30f9ed00f920a30a3b9c8e02819405f58eb5))
+* **auth:** add refresh_due daily-rotation decision helper ([8137831](https://github.com/cook-md/sync-agent/commit/8137831c96e19cf0c0978e099b50d6b368cfc73e))
+* **auth:** persist last_refresh timestamp in secure store ([0151265](https://github.com/cook-md/sync-agent/commit/015126579e0b2f70bc90083d6027b297ef6c389b))
+* **auth:** rotate JWT at least daily via refresh_due ([9c9a98f](https://github.com/cook-md/sync-agent/commit/9c9a98fae9e37dc8bdc6e9bce41cd863fa7ca9d2))
+* **cli:** add --headless flag and device-flow dispatch to login ([#96](https://github.com/cook-md/sync-agent/issues/96)) ([356f62c](https://github.com/cook-md/sync-agent/commit/356f62c3a6493d21a2735250c2255e337a0f12be))
+* **cli:** add prefer_device_flow detection for headless login ([d7ad157](https://github.com/cook-md/sync-agent/commit/d7ad157043bd0cbf3f66ebd32b0bfbdedef378f0))
+* headless device-code login for servers and Docker ([#96](https://github.com/cook-md/sync-agent/issues/96)) ([372b03c](https://github.com/cook-md/sync-agent/commit/372b03c785f194ff7ec1d827f1bb2e74b5d1e20b))
+
+
+### Bug Fixes
+
+* **auth:** add per-request timeout to device-flow HTTP calls ([17c74a8](https://github.com/cook-md/sync-agent/commit/17c74a8a82971e1b7c1752190e3822aa7927ee12))
+* **auth:** keep session on transient refresh failure; log refresh-timestamp errors ([a213719](https://github.com/cook-md/sync-agent/commit/a21371994038c82245df4c7081f0aa19dc25860e))
+* **cli:** let login own dispatch messaging on welcome-screen path ([31b59db](https://github.com/cook-md/sync-agent/commit/31b59db663fa6adc05ac01498120155cecbe71a9))
+
 ## [0.9.8](https://github.com/cook-md/sync-agent/compare/v0.9.7...v0.9.8) (2026-05-27)
 
 
