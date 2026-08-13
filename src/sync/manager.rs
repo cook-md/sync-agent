@@ -184,7 +184,9 @@ impl SyncManager {
                                         // Clear session
                                         let _ = auth.logout();
                                     }
-                                    _ => st.set_error(e.to_string()),
+                                    _ => st.set_error(super::error_display::humanize_error(
+                                        &e.to_string(),
+                                    )),
                                 }
                                 consecutive_failures += 1;
                                 break;
