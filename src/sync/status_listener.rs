@@ -1,3 +1,4 @@
+use super::error_display::humanize_error;
 use super::status::SyncState;
 use cooklang_sync_client::{SyncStatus as ClientSyncStatus, SyncStatusListener};
 use log::{debug, error, info, warn};
@@ -41,7 +42,7 @@ impl SyncStatusListener for SyncManagerListener {
             }
             ClientSyncStatus::Error { message } => {
                 error!("Sync status: Error - {}", message);
-                state.set_error(message);
+                state.set_error(humanize_error(&message));
             }
         }
     }
@@ -55,7 +56,7 @@ impl SyncStatusListener for SyncManagerListener {
         } else {
             let error_msg = message.unwrap_or_else(|| "Sync failed".to_string());
             warn!("Sync failed: {}", error_msg);
-            state.set_error(error_msg);
+            state.set_error(humanize_error(&error_msg));
         }
     }
 }
