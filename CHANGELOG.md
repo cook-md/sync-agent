@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.1](https://github.com/cook-md/sync-agent/compare/v0.10.0...v0.10.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **tray:** show human-readable sync errors instead of debug dumps ([6b324c8](https://github.com/cook-md/sync-agent/commit/6b324c8308637bdde6bcb85437981899872c0cfa))
+* **tray:** show human-readable sync errors instead of debug dumps ([62302e9](https://github.com/cook-md/sync-agent/commit/62302e995af01e03f1cc1811a0b461c63f9735f2))
+
 ## [0.10.0](https://github.com/cook-md/sync-agent/compare/v0.9.8...v0.10.0) (2026-06-08)
 
 
