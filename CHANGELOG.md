@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/cook-md/sync-agent/compare/v0.10.1...v0.11.0) (2026-08-28)
+
+
+### Features
+
+* **sync:** add NeedsPlan state for 402 payment-required responses ([88f867a](https://github.com/cook-md/sync-agent/commit/88f867af435f107048b7ed42521719cc12bb2ba2))
+
 ## [0.10.1](https://github.com/cook-md/sync-agent/compare/v0.10.0...v0.10.1) (2026-08-13)
 
 

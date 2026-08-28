@@ -1,6 +1,6 @@
 [package]
 name = "cook-sync"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 authors = ["Alexey Dubovskoy"]
 description = "CookCloud sync agent for syncing recipes with Cook.md"
