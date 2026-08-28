@@ -20,6 +20,7 @@ pub enum TrayEvent {
     SetFolder,
     OpenFolder,
     OpenWeb,
+    Subscribe,
     CheckUpdates,
     About,
     ToggleAutoStart,
@@ -257,6 +258,12 @@ impl SystemTray {
                         // Spawn in separate thread to avoid blocking event loop
                         std::thread::spawn(|| {
                             let _ = open::that("https://cook.md");
+                        });
+                    }
+                    TrayEvent::Subscribe => {
+                        // Spawn in separate thread to avoid blocking event loop
+                        std::thread::spawn(|| {
+                            let _ = open::that("https://cook.md/pricing");
                         });
                     }
                     TrayEvent::CheckUpdates => {
@@ -514,6 +521,8 @@ impl SystemTray {
                     event_loop_proxy.send_event(TrayEvent::OpenFolder).ok();
                 } else if event.id == menu.get_menu_id(&menu.open_web) {
                     event_loop_proxy.send_event(TrayEvent::OpenWeb).ok();
+                } else if event.id == menu.get_menu_id(&menu.subscribe) {
+                    event_loop_proxy.send_event(TrayEvent::Subscribe).ok();
                 } else if event.id == menu.get_menu_id(&menu.check_updates) {
                     event_loop_proxy.send_event(TrayEvent::CheckUpdates).ok();
                 } else if event.id == menu.get_menu_id(&menu.about) {

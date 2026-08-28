@@ -177,17 +177,46 @@ impl SyncManager {
 
                             if !is_retriable {
                                 // Non-retriable error - update state and break
-                                let mut st = state.lock().unwrap();
-                                match e {
-                                    SyncError::AuthenticationRequired => {
-                                        st.set_error("Authentication required".to_string());
-                                        // Clear session
-                                        let _ = auth.logout();
+                                let mut notify_needs_plan = false;
+                                {
+                                    let mut st = state.lock().unwrap();
+                                    match e {
+                                        SyncError::AuthenticationRequired => {
+                                            st.set_error("Authentication required".to_string());
+                                            // Clear session
+                                            let _ = auth.logout();
+                                        }
+                                        SyncError::PaymentRequired => {
+                                            // Only fire the notification once per needs-plan
+                                            // episode. This must be tracked by a dedicated flag
+                                            // rather than comparing `st.status` to `NeedsPlan`:
+                                            // run_async calls on_status_changed(Syncing) (->
+                                            // set_syncing()) at the start of every poll, which
+                                            // would overwrite NeedsPlan before this check runs
+                                            // and make it re-fire on every poll.
+                                            notify_needs_plan = st.should_notify_needs_plan();
+                                            st.set_needs_plan(
+                                                super::error_display::humanize_error(
+                                                    &e.to_string(),
+                                                ),
+                                            );
+                                            if notify_needs_plan {
+                                                st.mark_needs_plan_notified();
+                                            }
+                                        }
+                                        _ => st.set_error(super::error_display::humanize_error(
+                                            &e.to_string(),
+                                        )),
                                     }
-                                    _ => st.set_error(super::error_display::humanize_error(
-                                        &e.to_string(),
-                                    )),
                                 }
+
+                                if notify_needs_plan {
+                                    let _ = crate::notifications::show_notification(
+                                        "Cook Sync",
+                                        "Sync needs a Cook Basic or Pro plan — your files are untouched.",
+                                    );
+                                }
+
                                 consecutive_failures += 1;
                                 break;
                             }
@@ -333,6 +362,7 @@ async fn perform_sync_with_context(
     .await
     .map_err(|e| match e {
         cooklang_sync_client::errors::SyncError::Unauthorized => SyncError::AuthenticationRequired,
+        cooklang_sync_client::errors::SyncError::PaymentRequired => SyncError::PaymentRequired,
         cooklang_sync_client::errors::SyncError::ConnectionInitError(err) => {
             SyncError::Other(format!("Connection error: {err}"))
         }

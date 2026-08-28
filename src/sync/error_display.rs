@@ -15,6 +15,15 @@ pub fn humanize_error(raw: &str) -> String {
         return "Session expired — please log in again".to_string();
     }
 
+    // Exact-match the known PaymentRequired Display/Debug text rather than a
+    // "payment"/"paid plan" substring: a substring check can misfire on an
+    // unrelated error whose message happens to embed a user's folder path
+    // (e.g. ".../payment-receipts/recipes"), mislabeling it as a billing
+    // issue.
+    if lower == "sync requires a paid plan" || lower == "paymentrequired" {
+        return "Sync needs a Cook Basic or Pro plan — your files are untouched.".to_string();
+    }
+
     if lower.contains("timedout") || lower.contains("timed out") || lower.contains("timeout") {
         return "Network timeout — will retry".to_string();
     }
@@ -77,6 +86,28 @@ mod tests {
             humanize_error("Unauthorized"),
             "Session expired — please log in again"
         );
+    }
+
+    #[test]
+    fn payment_required_prompts_upgrade() {
+        assert_eq!(
+            humanize_error("Sync requires a paid plan"),
+            "Sync needs a Cook Basic or Pro plan — your files are untouched."
+        );
+        assert_eq!(
+            humanize_error("PaymentRequired"),
+            "Sync needs a Cook Basic or Pro plan — your files are untouched."
+        );
+    }
+
+    #[test]
+    fn payment_substring_in_unrelated_path_does_not_misfire() {
+        // A folder path that happens to contain "payment" must not be
+        // mislabeled as a billing issue — only the exact PaymentRequired
+        // Display/Debug text should match.
+        let raw =
+            "IoError { path: \"/Users/x/payment-receipts/recipes\", source: Os { code: 13 } }";
+        assert_eq!(humanize_error(raw), "File access error — see logs");
     }
 
     #[test]

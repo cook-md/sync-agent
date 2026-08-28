@@ -9,6 +9,7 @@ pub enum SyncStatus {
     Paused,
     Error,
     Offline,
+    NeedsPlan,
 }
 
 impl fmt::Display for SyncStatus {
@@ -20,6 +21,7 @@ impl fmt::Display for SyncStatus {
             SyncStatus::Paused => write!(f, "Paused"),
             SyncStatus::Error => write!(f, "Error"),
             SyncStatus::Offline => write!(f, "Offline"),
+            SyncStatus::NeedsPlan => write!(f, "Needs a plan"),
         }
     }
 }
@@ -33,6 +35,14 @@ pub struct SyncState {
     pub items_synced: usize,
     #[allow(dead_code)]
     pub items_pending: usize,
+    /// Whether the one-shot "needs a plan" desktop notification has already
+    /// fired for the *current* needs-plan episode. A new poll cycle writes
+    /// `Syncing` (via `set_syncing`) before the sync attempt resolves, so
+    /// this flag — not the current `status` — is what dedupes the
+    /// notification across repeated 402s. It is cleared only by
+    /// `set_idle`, i.e. a genuine successful sync / exit from the
+    /// needs-plan condition.
+    pub(crate) notified_needs_plan: bool,
 }
 
 impl Default for SyncState {
@@ -43,6 +53,7 @@ impl Default for SyncState {
             error_message: None,
             items_synced: 0,
             items_pending: 0,
+            notified_needs_plan: false,
         }
     }
 }
@@ -57,11 +68,31 @@ impl SyncState {
         self.status = SyncStatus::Idle;
         self.last_sync = Some(chrono::Utc::now());
         self.error_message = None;
+        self.notified_needs_plan = false;
     }
 
     pub fn set_error(&mut self, message: String) {
         self.status = SyncStatus::Error;
         self.error_message = Some(message);
+    }
+
+    pub fn set_needs_plan(&mut self, message: String) {
+        self.status = SyncStatus::NeedsPlan;
+        self.error_message = Some(message);
+    }
+
+    /// Whether the one-shot "needs a plan" notification should fire right
+    /// now. Survives the transient `Syncing` status a new poll writes
+    /// before the sync attempt resolves, so it does not re-fire on every
+    /// retry/poll while still unpaid.
+    pub fn should_notify_needs_plan(&self) -> bool {
+        !self.notified_needs_plan
+    }
+
+    /// Marks the "needs a plan" notification as shown for the current
+    /// needs-plan episode. Only `set_idle` clears this.
+    pub fn mark_needs_plan_notified(&mut self) {
+        self.notified_needs_plan = true;
     }
 
     pub fn clear_error(&mut self) {

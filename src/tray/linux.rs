@@ -18,6 +18,7 @@ pub enum TrayEvent {
     SetFolder,
     OpenFolder,
     OpenWeb,
+    Subscribe,
     CheckUpdates,
     About,
     ToggleAutoStart,
@@ -142,6 +143,11 @@ impl TrayState {
             TrayEvent::OpenWeb => {
                 if let Err(e) = open::that("https://cook.md") {
                     error!("Failed to open cook.md: {}", e);
+                }
+            }
+            TrayEvent::Subscribe => {
+                if let Err(e) = open::that("https://cook.md/pricing") {
+                    error!("Failed to open cook.md/pricing: {}", e);
                 }
             }
             TrayEvent::CheckUpdates => {
@@ -425,6 +431,15 @@ impl ksni::Tray for CookSyncTray {
                 ..Default::default()
             }
             .into(),
+            // Subscribe (opens the pricing page; relevant when sync needs a plan)
+            ksni::menu::StandardItem {
+                label: "Subscribe…".to_string(),
+                activate: Box::new(move |this: &mut Self| {
+                    this.state.handle_event(TrayEvent::Subscribe);
+                }),
+                ..Default::default()
+            }
+            .into(),
             // Auto-start checkbox
             ksni::menu::CheckmarkItem {
                 label: "Start on system startup".to_string(),
@@ -565,6 +580,7 @@ impl SystemTray {
                         SyncStatus::Paused => "Paused",
                         SyncStatus::Offline => "Offline",
                         SyncStatus::Error => error_message.as_deref().unwrap_or("Error"),
+                        SyncStatus::NeedsPlan => "Sync needs a plan",
                     }
                 };
 
