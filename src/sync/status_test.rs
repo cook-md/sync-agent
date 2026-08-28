@@ -10,6 +10,7 @@ mod tests {
         assert_eq!(format!("{}", SyncStatus::Paused), "Paused");
         assert_eq!(format!("{}", SyncStatus::Error), "Error");
         assert_eq!(format!("{}", SyncStatus::Offline), "Offline");
+        assert_eq!(format!("{}", SyncStatus::NeedsPlan), "Needs a plan");
     }
 
     #[test]
@@ -68,6 +69,91 @@ mod tests {
     }
 
     #[test]
+    fn test_sync_state_set_needs_plan() {
+        let mut state = SyncState::default();
+        let message = "Sync needs a Cook Basic or Pro plan — your files are untouched.".to_string();
+
+        state.set_needs_plan(message.clone());
+
+        assert_eq!(state.status, SyncStatus::NeedsPlan);
+        assert_eq!(state.error_message, Some(message));
+    }
+
+    #[test]
+    fn test_sync_state_needs_plan_recovers_to_idle_on_success() {
+        let mut state = SyncState::default();
+        state.set_needs_plan("Sync needs a Cook Basic or Pro plan".to_string());
+
+        // A later successful sync should clear NeedsPlan without a restart,
+        // the same way it clears a plain Error.
+        state.set_idle();
+
+        assert_eq!(state.status, SyncStatus::Idle);
+        assert!(state.error_message.is_none());
+    }
+
+    /// Regression test for the real poll cycle: `run_async` calls
+    /// `on_status_changed(Syncing)` (-> `set_syncing()`) at the *start* of
+    /// every poll, before the sync attempt resolves. A notification gate
+    /// based on comparing `state.status` to `NeedsPlan` is therefore always
+    /// evaluated right after a `set_syncing()` write, so it sees `Syncing`,
+    /// not `NeedsPlan`, and incorrectly decides to notify on every single
+    /// poll while unpaid — not just on the first one. This proved the bug
+    /// (see PR discussion): with the old status-comparison decision, the
+    /// second assertion below fails.
+    ///
+    /// `should_notify_needs_plan()` / `mark_needs_plan_notified()` fix this
+    /// by tracking the notification itself, which `set_syncing()` does not
+    /// touch — only `set_idle()` (a genuine exit from needs-plan) resets it.
+    #[test]
+    fn test_needs_plan_notification_survives_syncing_transitions() {
+        let mut state = SyncState::default();
+        let msg = "Sync needs a Cook Basic or Pro plan — your files are untouched.".to_string();
+
+        // Poll 1: run_async writes Syncing, then the sync fails with 402.
+        state.set_syncing();
+        let decision_1 = state.should_notify_needs_plan();
+        state.set_needs_plan(msg.clone());
+        if decision_1 {
+            state.mark_needs_plan_notified();
+        }
+        assert!(decision_1, "must notify on the first payment-required poll");
+
+        // Poll 2: still unpaid. run_async writes Syncing again *before* the
+        // next 402 — this used to overwrite the NeedsPlan status a
+        // status-comparison decision relied on.
+        state.set_syncing();
+        let decision_2 = state.should_notify_needs_plan();
+        state.set_needs_plan(msg.clone());
+        if decision_2 {
+            state.mark_needs_plan_notified();
+        }
+        assert!(
+            !decision_2,
+            "must not notify again on a later poll while still unpaid"
+        );
+
+        // The user subscribes: the next sync succeeds -> Idle, which is the
+        // only thing that resets the notified flag.
+        state.set_syncing();
+        state.set_idle();
+
+        // A later episode (e.g. the subscription lapses again) must notify
+        // once more, proving the flag was genuinely reset and not just
+        // permanently latched.
+        state.set_syncing();
+        let decision_3 = state.should_notify_needs_plan();
+        state.set_needs_plan(msg.clone());
+        if decision_3 {
+            state.mark_needs_plan_notified();
+        }
+        assert!(
+            decision_3,
+            "must notify again after a genuine recovery and a new payment-required episode"
+        );
+    }
+
+    #[test]
     fn test_sync_state_set_offline() {
         let mut state = SyncState::default();
 
@@ -104,6 +190,9 @@ mod tests {
 
         state.status = SyncStatus::Offline;
         assert!(!state.is_active());
+
+        state.status = SyncStatus::NeedsPlan;
+        assert!(!state.is_active());
     }
 
     #[test]
@@ -139,6 +228,7 @@ mod tests {
             SyncStatus::Paused,
             SyncStatus::Error,
             SyncStatus::Offline,
+            SyncStatus::NeedsPlan,
         ] {
             let json = serde_json::to_string(&status).unwrap();
             let deserialized: SyncStatus = serde_json::from_str(&json).unwrap();

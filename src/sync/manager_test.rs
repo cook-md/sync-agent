@@ -63,6 +63,10 @@ mod tests {
         // Offline - not active
         state.status = SyncStatus::Offline;
         assert!(!state.is_active());
+
+        // NeedsPlan - not active
+        state.status = SyncStatus::NeedsPlan;
+        assert!(!state.is_active());
     }
 
     #[tokio::test]
@@ -89,6 +93,7 @@ mod tests {
         assert_eq!(format!("{}", SyncStatus::Paused), "Paused");
         assert_eq!(format!("{}", SyncStatus::Error), "Error");
         assert_eq!(format!("{}", SyncStatus::Offline), "Offline");
+        assert_eq!(format!("{}", SyncStatus::NeedsPlan), "Needs a plan");
     }
 
     #[test]

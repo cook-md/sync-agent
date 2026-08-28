@@ -12,6 +12,7 @@ pub struct TrayMenu {
     pub set_folder: MenuItem,
     pub open_folder: MenuItem,
     pub open_web: MenuItem,
+    pub subscribe: MenuItem,
     pub check_updates: MenuItem,
     pub about: MenuItem,
     pub quit: MenuItem,
@@ -46,6 +47,7 @@ impl TrayMenu {
         let set_folder = MenuItem::new("Set recipes folder...", true, None);
         let open_folder = MenuItem::new("Open recipes folder", true, None);
         let open_web = MenuItem::new("Open cook.md", true, None);
+        let subscribe = MenuItem::new("Subscribe…", true, None);
         let check_updates = MenuItem::new("Check for updates...", true, None);
         let about = MenuItem::new("About Cook Sync", true, None);
         let quit = MenuItem::new("Quit", true, None);
@@ -62,6 +64,7 @@ impl TrayMenu {
         menu.append(&open_folder).unwrap();
         menu.append(&PredefinedMenuItem::separator()).unwrap();
         menu.append(&open_web).unwrap();
+        menu.append(&subscribe).unwrap();
         menu.append(&auto_start).unwrap();
         menu.append(&check_updates).unwrap();
         menu.append(&about).unwrap();
@@ -79,6 +82,7 @@ impl TrayMenu {
             set_folder,
             open_folder,
             open_web,
+            subscribe,
             check_updates,
             about,
             quit,
@@ -93,6 +97,7 @@ impl TrayMenu {
             SyncStatus::Paused => ("🟠", "Paused".to_string()),
             SyncStatus::Offline => ("🟠", "Offline".to_string()),
             SyncStatus::Error => ("🔴", error_msg.unwrap_or("Error").to_string()),
+            SyncStatus::NeedsPlan => ("🔒", "Sync needs a plan".to_string()),
         };
         self.status_item
             .set_text(format!("Status: {text} {indicator}"));

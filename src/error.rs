@@ -24,6 +24,9 @@ pub enum SyncError {
     #[error("Authentication required")]
     AuthenticationRequired,
 
+    #[error("Sync requires a paid plan")]
+    PaymentRequired,
+
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
 
