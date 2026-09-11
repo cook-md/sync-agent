@@ -2,6 +2,7 @@ pub mod error_display;
 pub mod manager;
 pub mod status;
 pub mod status_listener;
+pub mod task_slot;
 
 #[cfg(test)]
 mod manager_test;
