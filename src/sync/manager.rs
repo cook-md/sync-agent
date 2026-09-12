@@ -1,22 +1,29 @@
 use super::status::{SyncState, SyncStatus};
 use super::status_listener::SyncManagerListener;
+use super::task_slot::SyncTaskSlot;
 use crate::auth::AuthManager;
 use crate::config::Config;
 use crate::error::{Result, SyncError};
 use cooklang_sync_client::{extract_uid_from_jwt, SyncContext};
 use log::{debug, error, info, warn};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use tokio::sync::RwLock;
-use tokio::task::JoinHandle;
 use tokio::time::{interval, Duration};
+
+/// How long `stop()` waits for the sync task before giving up. Used on quit,
+/// where the process exits shortly afterwards anyway. Anything that starts a
+/// new task goes through `SyncTaskSlot`, which always joins fully.
+const STOP_GRACE: Duration = Duration::from_millis(1000);
 
 pub struct SyncManager {
     auth: Arc<AuthManager>,
     config: Arc<Config>,
     state: Arc<Mutex<SyncState>>,
-    sync_context: Arc<RwLock<Option<Arc<SyncContext>>>>,
-    sync_task: Arc<Mutex<Option<JoinHandle<()>>>>,
+    /// The single background sync task. Never two at once: the sync client
+    /// keys its registry by path relative to the recipes folder, and two
+    /// clients with different folders sharing that registry corrupt the
+    /// namespace (issue #104).
+    tasks: SyncTaskSlot,
     retry_policy: RetryPolicy,
 }
 
@@ -51,8 +58,7 @@ impl SyncManager {
             auth,
             config,
             state: Arc::new(Mutex::new(SyncState::default())),
-            sync_context: Arc::new(RwLock::new(None)),
-            sync_task: Arc::new(Mutex::new(None)),
+            tasks: SyncTaskSlot::new(),
             retry_policy: RetryPolicy::default(),
         }
     }
@@ -61,6 +67,9 @@ impl SyncManager {
         Arc::clone(&self.state)
     }
 
+    /// Starts the background sync task for the configured recipes folder.
+    /// If a task is already running it is cancelled and fully joined first,
+    /// so callers never end up with two clients on the same registry.
     pub async fn start(&self) -> Result<()> {
         // Check authentication
         if !self.auth.is_authenticated() {
@@ -80,21 +89,20 @@ impl SyncManager {
         let listener = Arc::new(SyncManagerListener::new(Arc::clone(&self.state)));
         sync_context.set_listener(listener);
 
-        // Store context
-        *self.sync_context.write().await = Some(Arc::clone(&sync_context));
-
         // Start sync loop
         let state = Arc::clone(&self.state);
         let auth = Arc::clone(&self.auth);
         let config = Arc::clone(&self.config);
         let recipes_dir = recipes_dir.unwrap();
-        let sync_task_clone = Arc::clone(&self.sync_task);
         let retry_policy = self.retry_policy.clone();
 
         // Get cancellation token from context
         let token = sync_context.token();
+        let task_context = Arc::clone(&sync_context);
+        let db_path = config.paths().database_file.clone();
+        let registry_dir = recipes_dir.clone();
 
-        let handle = tokio::spawn(async move {
+        let sync_loop = async move {
             let interval_secs = config.settings().lock().unwrap().sync_interval_secs;
             let mut interval = interval(Duration::from_secs(interval_secs));
             let mut last_success = std::time::Instant::now();
@@ -256,15 +264,37 @@ impl SyncManager {
                     }
                 }
             }
+        };
 
-            // Clear the task handle when done
-            *sync_task_clone.lock().unwrap() = None;
-        });
-
-        // Store the task handle
-        *self.sync_task.lock().unwrap() = Some(handle);
+        // The closure runs only after any previous task has been fully
+        // joined, so the registry is never touched while a client uses it.
+        self.tasks
+            .replace(task_context, || {
+                prepare_registry_for_dir(&db_path, &registry_dir)?;
+                Ok::<_, SyncError>(tokio::spawn(sync_loop))
+            })
+            .await?;
 
         Ok(())
+    }
+
+    /// Switches syncing to a different recipes folder: saves the setting and
+    /// restarts the sync task. The restart stops and fully joins the running
+    /// client before the new one starts, and `start()` resets the local
+    /// registry when it was built for a different folder.
+    pub async fn change_recipes_dir(&self, new_dir: PathBuf) -> Result<()> {
+        info!("Changing recipes folder to {}", new_dir.display());
+
+        self.config.update_settings(|s| {
+            s.recipes_dir = Some(new_dir);
+        })?;
+
+        if !self.auth.is_authenticated() {
+            info!("Recipes folder saved; sync will start after login");
+            return Ok(());
+        }
+
+        self.start().await
     }
 
     pub fn pause(&self) {
@@ -279,50 +309,88 @@ impl SyncManager {
         }
     }
 
+    /// Cancels the sync task and waits briefly for it to finish. Meant for
+    /// shutdown and logout; a task that needs longer keeps running in the
+    /// background and is joined by the next `start()`.
     pub async fn stop(&self) -> Result<()> {
         info!("Stopping sync manager");
-
-        // Cancel via context
-        if let Some(ctx) = self.sync_context.read().await.as_ref() {
-            ctx.cancel();
-            debug!("Cancellation signal sent");
-        }
-
-        // Wait for sync task with timeout
-        let handle = self.sync_task.lock().unwrap().take();
-        if let Some(handle) = handle {
-            info!("Waiting for sync task to complete");
-
-            // Give it 1 second to finish gracefully - if called from quit handler,
-            // the process will force exit after 500ms anyway
-            let timeout = Duration::from_millis(1000);
-            match tokio::time::timeout(timeout, handle).await {
-                Ok(Ok(())) => info!("Sync task completed gracefully"),
-                Ok(Err(e)) => warn!("Sync task panicked: {:?}", e),
-                Err(_) => {
-                    warn!(
-                        "Sync task did not complete within {:?}, cancellation signal sent",
-                        timeout
-                    );
-                }
-            }
-        }
-
-        // Clear context
-        *self.sync_context.write().await = None;
-
+        self.tasks.stop(STOP_GRACE).await;
         self.state.lock().unwrap().status = SyncStatus::Idle;
         info!("Sync manager stopped");
         Ok(())
     }
+}
 
-    pub fn is_running(&self) -> bool {
-        let state = self.state.lock().unwrap();
-        matches!(
-            state.status,
-            SyncStatus::Syncing | SyncStatus::Idle | SyncStatus::Offline
-        )
+fn same_directory(a: &Path, b: &Path) -> bool {
+    if a == b {
+        return true;
     }
+    match (a.canonicalize(), b.canonicalize()) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    }
+}
+
+/// Sidecar file recording which recipes folder the registry was built for.
+fn registry_dir_marker(db_path: &Path) -> PathBuf {
+    let db_name = db_path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    db_path.with_file_name(format!("{db_name}.recipes-dir"))
+}
+
+/// Makes sure the local registry belongs to `recipes_dir`.
+///
+/// The sync client stores paths relative to the recipes folder. A registry
+/// built for another folder would be re-interpreted against the new one:
+/// every file looks new (uploaded under a spurious prefix) and every record
+/// looks deleted (tombstoned on cook.md). Resetting instead makes the new
+/// folder behave like a fresh device: cook.md is downloaded into it and
+/// local files not yet on cook.md are uploaded.
+///
+/// A registry without a marker (created by an older version) is trusted
+/// and the marker is written for it.
+fn prepare_registry_for_dir(db_path: &Path, recipes_dir: &Path) -> Result<()> {
+    let marker = registry_dir_marker(db_path);
+
+    match std::fs::read_to_string(&marker) {
+        Ok(previous) => {
+            let previous = PathBuf::from(previous.trim());
+            if !same_directory(&previous, recipes_dir) {
+                info!(
+                    "Recipes folder changed from {} to {}, resetting local sync registry",
+                    previous.display(),
+                    recipes_dir.display()
+                );
+                remove_registry_files(db_path)?;
+            }
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(e.into()),
+    }
+
+    std::fs::write(&marker, recipes_dir.display().to_string())?;
+    Ok(())
+}
+
+/// Deletes the sync client's registry database together with any SQLite
+/// sidecar files, so the next client start begins from an empty registry.
+pub(crate) fn remove_registry_files(db_path: &Path) -> std::io::Result<()> {
+    let db_name = db_path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    for suffix in ["", "-journal", "-wal", "-shm"] {
+        let path = db_path.with_file_name(format!("{db_name}{suffix}"));
+        match std::fs::remove_file(&path) {
+            Ok(()) => debug!("Removed {}", path.display()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 async fn perform_sync_with_context(
@@ -390,6 +458,88 @@ mod tests {
 
         // Test max delay cap
         assert!(policy.calculate_delay(10) <= policy.max_delay);
+    }
+
+    #[test]
+    fn prepare_registry_keeps_db_and_records_dir_when_no_marker_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("sync.db");
+        std::fs::write(&db, b"records").unwrap();
+        let recipes = dir.path().join("Recipes");
+        std::fs::create_dir(&recipes).unwrap();
+
+        prepare_registry_for_dir(&db, &recipes).unwrap();
+
+        assert!(
+            db.exists(),
+            "an existing registry without a marker is trusted"
+        );
+        assert_eq!(
+            std::fs::read_to_string(registry_dir_marker(&db)).unwrap(),
+            recipes.display().to_string()
+        );
+    }
+
+    #[test]
+    fn prepare_registry_keeps_db_when_marker_matches_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("sync.db");
+        std::fs::write(&db, b"records").unwrap();
+        let recipes = dir.path().join("Recipes");
+        std::fs::create_dir(&recipes).unwrap();
+        std::fs::write(registry_dir_marker(&db), recipes.display().to_string()).unwrap();
+
+        prepare_registry_for_dir(&db, &recipes).unwrap();
+
+        assert!(db.exists());
+    }
+
+    #[test]
+    fn prepare_registry_resets_db_when_marker_points_to_other_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("sync.db");
+        std::fs::write(&db, b"records").unwrap();
+        std::fs::write(dir.path().join("sync.db-wal"), b"wal").unwrap();
+        let old = dir.path().join("CookRecipes").join("Recipes");
+        let new = dir.path().join("CookRecipes");
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(registry_dir_marker(&db), old.display().to_string()).unwrap();
+
+        prepare_registry_for_dir(&db, &new).unwrap();
+
+        assert!(
+            !db.exists(),
+            "registry built for another folder must be reset"
+        );
+        assert!(!dir.path().join("sync.db-wal").exists());
+        assert_eq!(
+            std::fs::read_to_string(registry_dir_marker(&db)).unwrap(),
+            new.display().to_string()
+        );
+    }
+
+    #[test]
+    fn remove_registry_files_deletes_db_and_sqlite_sidecars() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("sync.db");
+        for name in ["sync.db", "sync.db-journal", "sync.db-wal", "sync.db-shm"] {
+            std::fs::write(dir.path().join(name), b"x").unwrap();
+        }
+        // Unrelated files in the data dir must survive.
+        std::fs::write(dir.path().join("updates.json"), b"{}").unwrap();
+
+        remove_registry_files(&db).unwrap();
+
+        for name in ["sync.db", "sync.db-journal", "sync.db-wal", "sync.db-shm"] {
+            assert!(!dir.path().join(name).exists(), "{name} should be removed");
+        }
+        assert!(dir.path().join("updates.json").exists());
+    }
+
+    #[test]
+    fn remove_registry_files_is_ok_when_nothing_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        remove_registry_files(&dir.path().join("sync.db")).unwrap();
     }
 
     #[tokio::test]

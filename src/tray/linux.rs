@@ -108,22 +108,26 @@ impl TrayState {
 
                     if let Some(path) = folder {
                         info!("Setting recipes folder to: {:?}", path);
-                        let path_clone = path.clone();
 
-                        if let Err(e) = config_clone.update_settings(|s| {
-                            s.recipes_dir = Some(path_clone);
-                        }) {
-                            error!("Failed to update recipes directory: {}", e);
-                            return;
-                        }
-
-                        *folder_path_clone.lock().unwrap() = Some(path.display().to_string());
-
-                        // Start sync with new folder — use spawn() not block_on() so the
-                        // tokio reactor can drive any I/O the sync startup performs
+                        // The sync manager owns the whole switch: it stops the
+                        // running client, saves the setting, resets the local
+                        // registry and restarts — use spawn() not block_on() so the
+                        // tokio reactor can drive any I/O the sync startup performs.
                         runtime_handle_clone.spawn(async move {
-                            if let Err(e) = sync_manager_clone.start().await {
-                                error!("Failed to start sync: {}", e);
+                            let result = sync_manager_clone.change_recipes_dir(path).await;
+
+                            // Reflect whatever is configured now: the setting is
+                            // saved even when restarting the sync fails.
+                            *folder_path_clone.lock().unwrap() = config_clone
+                                .settings()
+                                .lock()
+                                .unwrap()
+                                .recipes_dir
+                                .as_ref()
+                                .map(|p| p.display().to_string());
+
+                            if let Err(e) = result {
+                                error!("Failed to switch recipes folder: {}", e);
                             }
                         });
                     }

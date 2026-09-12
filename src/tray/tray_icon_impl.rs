@@ -8,6 +8,7 @@ use crate::error::{Result, SyncError};
 use crate::platform::{ThemeChange, ThemeWatcher};
 use crate::sync::{SyncManager, SyncStatus};
 use log::{debug, error, info, trace};
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use tokio::runtime::Handle;
@@ -213,36 +214,29 @@ impl SystemTray {
                                 .pick_folder();
 
                             if let Some(path) = folder {
-                                info!("Setting recipes folder to: {path:?}");
-                                let path_clone = path.clone();
-
-                                // Update configuration
-                                if let Err(e) = config_clone.update_settings(|s| {
-                                    s.recipes_dir = Some(path_clone);
-                                }) {
-                                    error!("Failed to update recipes directory: {e}");
-                                } else {
-                                    // Restart sync manager with new folder
-                                    let was_running = sync_manager_clone.is_running();
-
-                                    // Use the Tokio runtime handle to spawn the async task
-                                    runtime_handle_clone.spawn(async move {
-                                        if was_running {
-                                            if let Err(e) = sync_manager_clone.stop().await {
-                                                error!("Failed to stop sync manager: {e}");
-                                            }
-                                        }
-
-                                        if let Err(e) = sync_manager_clone.start().await {
-                                            error!("Failed to start sync manager: {e}");
-                                        }
-
-                                        // Trigger status update after sync manager starts
-                                        event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
-                                    });
-
-                                    info!("Recipes folder set successfully");
+                                let previous =
+                                    config_clone.settings().lock().unwrap().recipes_dir.clone();
+                                if !confirm_folder_switch(previous.as_deref(), &path) {
+                                    info!("Recipes folder change cancelled by user");
+                                    return;
                                 }
+
+                                info!("Setting recipes folder to: {path:?}");
+
+                                // The sync manager owns the whole switch: it stops
+                                // the running client, saves the setting, resets the
+                                // local registry and restarts. Doing it here piecemeal
+                                // is what let two clients overlap (issue #104).
+                                runtime_handle_clone.spawn(async move {
+                                    if let Err(e) =
+                                        sync_manager_clone.change_recipes_dir(path).await
+                                    {
+                                        error!("Failed to switch recipes folder: {e}");
+                                    }
+
+                                    // Trigger status update after sync manager starts
+                                    event_proxy_clone.send_event(TrayEvent::UpdateStatus).ok();
+                                });
                             }
                         });
                     }
@@ -639,6 +633,34 @@ fn add_error_dot(rgba_img: &mut image::RgbaImage, width: u32, height: u32) {
             }
         }
     }
+}
+
+/// Asks the user to confirm switching away from an existing recipes folder.
+/// Returns `true` when there is nothing to confirm (first-time setup or the
+/// same folder picked again) or the user agreed.
+fn confirm_folder_switch(previous: Option<&Path>, new: &Path) -> bool {
+    let Some(previous) = previous else {
+        return true;
+    };
+    if previous == new {
+        return true;
+    }
+
+    let message = format!(
+        "Switch the recipes folder to:\n{}\n\n\
+        Cook Sync will stop syncing:\n{}\n\n\
+        The new folder is re-indexed and synced with cook.md. Files in it that \
+        already exist on cook.md will be replaced with the cook.md version.",
+        new.display(),
+        previous.display()
+    );
+
+    rfd::MessageDialog::new()
+        .set_title("Change Recipes Folder")
+        .set_description(message)
+        .set_buttons(rfd::MessageButtons::YesNo)
+        .show()
+        == rfd::MessageDialogResult::Yes
 }
 
 fn load_icon() -> Result<Icon> {
