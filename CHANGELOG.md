@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.1](https://github.com/cook-md/sync-agent/compare/v0.11.0...v0.11.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **sync:** never run two sync clients when the recipes folder changes ([949e861](https://github.com/cook-md/sync-agent/commit/949e86106056cae7bf61a7be61b16ad38fabfb6f))
+* **sync:** never run two sync clients when the recipes folder changes ([210b70e](https://github.com/cook-md/sync-agent/commit/210b70ee9dc1b411329bfa2958c36786e709ecf2)), closes [#104](https://github.com/cook-md/sync-agent/issues/104)
+
 ## [0.11.0](https://github.com/cook-md/sync-agent/compare/v0.10.1...v0.11.0) (2026-08-28)
 
 
