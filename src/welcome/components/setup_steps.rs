@@ -202,7 +202,7 @@ fn render_login_button(
     // Helper text centered
     ui.vertical_centered(|ui| {
         ui.label(
-            egui::RichText::new("Click to open browser for authentication")
+            egui::RichText::new("Opens your browser to sign in. Sync needs Cook Basic: cook.md/pricing")
                 .size(typography::BODY_REGULAR_SIZE)
                 .color(palette.text_secondary),
         );
