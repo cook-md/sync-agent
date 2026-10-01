@@ -96,7 +96,7 @@ objc = "0.2"
 core-foundation = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
 # macOS uses tray-icon
-tray-icon = "0.21"
+tray-icon = "0.25"
 winit = "0.30"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -109,7 +109,7 @@ windows-service = "0.8"
 winreg = "0.55"
 keyring = { version = "3", features = ["windows-native"] }
 # Windows uses tray-icon
-tray-icon = "0.21"
+tray-icon = "0.25"
 winit = "0.30"
 
 [target.'cfg(windows)'.build-dependencies]
