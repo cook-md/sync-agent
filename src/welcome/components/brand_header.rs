@@ -68,7 +68,7 @@ pub fn render_brand_header(
 
         // Subheading / value proposition (Figma: 15px)
         ui.label(
-            egui::RichText::new("Keep your recipes synced across all your devices")
+            egui::RichText::new("Keep your recipes synced across all your devices with Cook Basic")
                 .size(typography::BODY_REGULAR_SIZE)
                 .color(palette.text_secondary),
         );

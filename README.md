@@ -2,6 +2,8 @@
 
 A lightweight, cross-platform sync agent for Cook.md that runs in the background and syncs your recipes with Cook.md.
 
+Syncing needs a cook.md account with Cook Basic or Cook Pro ([plans](https://cook.md/pricing)); accounts from before the paywall sync free.
+
 ## Features
 
 - **Cross-platform**: Works on macOS, Linux, and Windows
