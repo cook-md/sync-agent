@@ -24,7 +24,7 @@ jobs:
       minor: ${{ steps.release.outputs.minor }}
       patch: ${{ steps.release.outputs.patch }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         with:
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -63,7 +63,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Sync version to Packager.toml
         shell: bash
@@ -83,7 +83,7 @@ jobs:
 
       - name: Cache cargo-packager
         id: cache-cargo-packager
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cargo-packager
           key: ${{ matrix.platform.target }}-cargo-packager-0.11.7
@@ -360,7 +360,7 @@ jobs:
           ls -lh release-assets/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.platform.artifact_name }}
           path: release-assets/*
@@ -374,10 +374,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -391,7 +391,7 @@ jobs:
           ./scripts/generate-manifest.sh "$VERSION" artifacts
 
       - name: Upload manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: manifest
           path: manifest.json
@@ -408,10 +408,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -426,7 +426,7 @@ jobs:
           ls -lh release-assets/
 
       - name: Upload assets to existing release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.release-please.outputs.tag_name }}
           files: release-assets/*

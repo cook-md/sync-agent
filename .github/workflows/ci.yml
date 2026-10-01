@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-latest] #windows-latest, macOS
         
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -26,7 +26,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.7
+        uses: mozilla-actions/sccache-action@v0.0.11
 
       - name: Setup Rust cache
         id: rust-cache
