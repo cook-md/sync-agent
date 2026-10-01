@@ -157,7 +157,7 @@ pub mod sizing {
 
 /// Configure egui style with our design system
 pub fn configure_style(ctx: &egui::Context, theme: AppTheme) {
-    let mut style = (*ctx.style()).clone();
+    let mut style = (*ctx.global_style()).clone();
     let palette = ColorPalette::for_theme(theme);
 
     // Window background
@@ -167,18 +167,22 @@ pub fn configure_style(ctx: &egui::Context, theme: AppTheme) {
     // Spacing
     style.spacing.button_padding = egui::vec2(sizing::BUTTON_PADDING_H, sizing::BUTTON_PADDING_V);
     style.spacing.item_spacing = egui::vec2(spacing::SMALL, spacing::SMALL);
-    style.spacing.window_margin = egui::Margin::same(spacing::XLARGE);
+    style.spacing.window_margin = egui::Margin::same(spacing::XLARGE as i8);
 
     // Rounding
-    style.visuals.widgets.noninteractive.rounding = egui::Rounding::same(sizing::BUTTON_ROUNDING);
-    style.visuals.widgets.inactive.rounding = egui::Rounding::same(sizing::BUTTON_ROUNDING);
-    style.visuals.widgets.hovered.rounding = egui::Rounding::same(sizing::BUTTON_ROUNDING);
-    style.visuals.widgets.active.rounding = egui::Rounding::same(sizing::BUTTON_ROUNDING);
+    style.visuals.widgets.noninteractive.corner_radius =
+        egui::CornerRadius::same(sizing::BUTTON_ROUNDING as u8);
+    style.visuals.widgets.inactive.corner_radius =
+        egui::CornerRadius::same(sizing::BUTTON_ROUNDING as u8);
+    style.visuals.widgets.hovered.corner_radius =
+        egui::CornerRadius::same(sizing::BUTTON_ROUNDING as u8);
+    style.visuals.widgets.active.corner_radius =
+        egui::CornerRadius::same(sizing::BUTTON_ROUNDING as u8);
 
     // Text colors
     style.visuals.override_text_color = Some(palette.text_primary);
 
-    ctx.set_style(style);
+    ctx.set_global_style(style);
 }
 
 /// Render a primary button (brand orange, high emphasis)
@@ -202,7 +206,7 @@ pub fn primary_button(
             .strong(),
     )
     .fill(fill_color)
-    .rounding(sizing::BUTTON_ROUNDING);
+    .corner_radius(sizing::BUTTON_ROUNDING);
 
     ui.add(button)
 }
@@ -215,12 +219,12 @@ pub fn action_button_disabled(
 ) -> egui::Response {
     // Use Frame to ensure correct background color
     let mut response = None;
-    egui::Frame::none()
+    egui::Frame::new()
         .fill(palette.button_disabled_bg)
-        .rounding(sizing::BUTTON_ROUNDING)
+        .corner_radius(sizing::BUTTON_ROUNDING)
         .inner_margin(egui::Margin::symmetric(
-            sizing::BUTTON_PADDING_H,
-            sizing::BUTTON_PADDING_V,
+            sizing::BUTTON_PADDING_H as i8,
+            sizing::BUTTON_PADDING_V as i8,
         ))
         .show(ui, |ui| {
             let label_response = ui.add(
@@ -253,7 +257,7 @@ pub fn secondary_button(
     .fill(egui::Color32::TRANSPARENT)
     .stroke(egui::Stroke::new(2.0, palette.border))
     .min_size(egui::vec2(sizing::BUTTON_MIN_WIDTH, sizing::BUTTON_HEIGHT))
-    .rounding(sizing::BUTTON_ROUNDING);
+    .corner_radius(sizing::BUTTON_ROUNDING);
 
     ui.add_enabled(enabled, button)
 }
@@ -264,7 +268,7 @@ pub fn icon_button(ui: &mut egui::Ui, icon: &str, palette: &ColorPalette) -> egu
     let button = egui::Button::new(egui::RichText::new(icon).size(sizing::ICON_SIZE_SMALL))
         .fill(palette.surface)
         .min_size(egui::vec2(sizing::BUTTON_HEIGHT, sizing::BUTTON_HEIGHT))
-        .rounding(sizing::BUTTON_ROUNDING);
+        .corner_radius(sizing::BUTTON_ROUNDING);
 
     ui.add(button)
 }
@@ -324,11 +328,11 @@ pub fn error_message(ui: &mut egui::Ui, message: &str, palette: &ColorPalette) {
 
     ui.horizontal(|ui| {
         ui.add_space(left_offset);
-        egui::Frame::none()
+        egui::Frame::new()
             .fill(palette.error.linear_multiply(0.1))
             .stroke(egui::Stroke::new(1.0, palette.error))
-            .rounding(sizing::INPUT_ROUNDING)
-            .inner_margin(egui::Margin::same(spacing::MEDIUM))
+            .corner_radius(sizing::INPUT_ROUNDING)
+            .inner_margin(egui::Margin::same(spacing::MEDIUM as i8))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("⚠️").size(sizing::ICON_SIZE_SMALL));
@@ -344,10 +348,10 @@ pub fn error_message(ui: &mut egui::Ui, message: &str, palette: &ColorPalette) {
 
 /// Render a card/surface container (no border per Figma design)
 pub fn card_frame(palette: &ColorPalette) -> egui::Frame {
-    egui::Frame::none()
+    egui::Frame::new()
         .fill(palette.surface)
-        .rounding(sizing::CARD_ROUNDING)
-        .inner_margin(egui::Margin::same(0.0)) // Steps have their own padding
+        .corner_radius(sizing::CARD_ROUNDING)
+        .inner_margin(egui::Margin::same(0)) // Steps have their own padding
 }
 
 /// Render a text link in brand orange

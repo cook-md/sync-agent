@@ -86,7 +86,9 @@ impl WelcomeApp {
 }
 
 impl eframe::App for WelcomeApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = &ui.ctx().clone();
+
         // Load logo on first frame if not already loaded
         if self.logo_texture.is_none() {
             use crate::welcome::components::load_logo;
@@ -97,15 +99,17 @@ impl eframe::App for WelcomeApp {
         style::configure_style(ctx, self.theme);
 
         // Add horizontal margin to the whole panel
-        let frame = egui::Frame::central_panel(&ctx.style())
-            .inner_margin(egui::Margin::symmetric(16.0, 0.0)); // 16px horizontal margin
+        let frame = egui::Frame::central_panel(&ctx.global_style())
+            .inner_margin(egui::Margin::symmetric(16, 0)); // 16px horizontal margin
 
-        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .auto_shrink([false; 2])
-                .show(ui, |ui| {
-                    // Center content vertically
-                    ui.vertical_centered(|ui| {
+        egui::CentralPanel::default()
+            .frame(frame)
+            .show_inside(ui, |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false; 2])
+                    .show(ui, |ui| {
+                        // Center content vertically
+                        ui.vertical_centered(|ui| {
                         // Minimal top spacing
                         ui.add_space(style::spacing::SMALL);
 
@@ -144,8 +148,8 @@ impl eframe::App for WelcomeApp {
                             self.state.request_close();
                         }
                     });
-                });
-        });
+                    });
+            });
 
         if self.state.should_close {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -185,7 +189,12 @@ pub fn show_welcome_screen() -> Result<WelcomeResult> {
     eframe::run_native(
         "Welcome to Cook Sync",
         options,
-        Box::new(move |_cc| Ok(Box::new(WelcomeApp::with_result_ref(result_ref)))),
+        Box::new(move |cc| {
+            let app = WelcomeApp::with_result_ref(result_ref);
+            // Apply the theme before the first frame so the root Ui starts styled
+            style::configure_style(&cc.egui_ctx, app.theme);
+            Ok(Box::new(app))
+        }),
     )
     .map_err(|e| crate::error::SyncError::Other(e.to_string()))?;
 

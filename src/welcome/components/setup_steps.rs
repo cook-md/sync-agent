@@ -79,8 +79,8 @@ fn render_step1_auth(
     response: &mut SetupStepsResponse,
 ) {
     // Step container with padding
-    egui::Frame::none()
-        .inner_margin(egui::Margin::same(spacing::MEDIUM))
+    egui::Frame::new()
+        .inner_margin(egui::Margin::same(spacing::MEDIUM as i8))
         .show(ui, |ui| {
             // Header
             render_step_header(
@@ -122,10 +122,13 @@ fn render_login_in_progress(ui: &mut egui::Ui, _palette: &ColorPalette) {
 
     ui.horizontal(|ui| {
         ui.add_space(left_space);
-        egui::Frame::none()
+        egui::Frame::new()
             .fill(egui::Color32::WHITE)
-            .rounding(sizing::BUTTON_ROUNDING)
-            .inner_margin(egui::Margin::symmetric(spacing::XLARGE, spacing::LARGE))
+            .corner_radius(sizing::BUTTON_ROUNDING)
+            .inner_margin(egui::Margin::symmetric(
+                spacing::XLARGE as i8,
+                spacing::LARGE as i8,
+            ))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.spinner();
@@ -154,10 +157,13 @@ fn render_logged_in_state(
     ui.horizontal(|ui| {
         ui.add_space(left_space);
         // White background card with email (always white per Figma)
-        egui::Frame::none()
+        egui::Frame::new()
             .fill(egui::Color32::WHITE)
-            .rounding(sizing::BUTTON_ROUNDING)
-            .inner_margin(egui::Margin::symmetric(spacing::XLARGE, spacing::LARGE))
+            .corner_radius(sizing::BUTTON_ROUNDING)
+            .inner_margin(egui::Margin::symmetric(
+                spacing::XLARGE as i8,
+                spacing::LARGE as i8,
+            ))
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     // Email display (dark text per Figma)
@@ -216,8 +222,8 @@ fn render_step2_directory(
     response: &mut SetupStepsResponse,
 ) {
     // Step container with padding
-    egui::Frame::none()
-        .inner_margin(egui::Margin::same(spacing::MEDIUM))
+    egui::Frame::new()
+        .inner_margin(egui::Margin::same(spacing::MEDIUM as i8))
         .show(ui, |ui| {
             // Header
             render_step_header(
@@ -280,6 +286,7 @@ fn render_directory_picker(
                 rect,
                 sizing::BUTTON_ROUNDING,
                 egui::Stroke::new(1.0, palette.border_dashed),
+                egui::StrokeKind::Middle,
             );
 
             // Inner white fill
@@ -347,7 +354,7 @@ fn render_directory_selected(
     // Measure actual text width using layout
     let font_id = egui::FontId::proportional(typography::BUTTON_TEXT_SIZE);
     let text_galley =
-        ui.fonts(|f| f.layout_no_wrap(dir_text.clone(), font_id, egui::Color32::BLACK));
+        ui.fonts_mut(|f| f.layout_no_wrap(dir_text.clone(), font_id, egui::Color32::BLACK));
     let text_width = text_galley.size().x;
 
     // Total content width: icon + spacing + text + frame padding
@@ -359,10 +366,13 @@ fn render_directory_selected(
 
     ui.horizontal(|ui| {
         ui.add_space(left_offset);
-        let button_response = egui::Frame::none()
+        let button_response = egui::Frame::new()
             .stroke(egui::Stroke::new(1.0, palette.border_dashed))
-            .rounding(sizing::BUTTON_ROUNDING)
-            .inner_margin(egui::Margin::symmetric(spacing::SMALL, spacing::SMALL))
+            .corner_radius(sizing::BUTTON_ROUNDING)
+            .inner_margin(egui::Margin::symmetric(
+                spacing::SMALL as i8,
+                spacing::SMALL as i8,
+            ))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("📁").size(sizing::ICON_SIZE_MEDIUM));
@@ -397,8 +407,8 @@ fn render_directory_selected(
 
 fn render_step3_preferences(ui: &mut egui::Ui, state: &mut WelcomeState, palette: &ColorPalette) {
     // Step container with padding
-    egui::Frame::none()
-        .inner_margin(egui::Margin::same(spacing::MEDIUM))
+    egui::Frame::new()
+        .inner_margin(egui::Margin::same(spacing::MEDIUM as i8))
         .show(ui, |ui| {
             // Step 3 is optional - show checkmark when both required steps are done
             let step3_complete = state.is_step1_complete() && state.is_step2_complete();
@@ -488,6 +498,7 @@ fn render_custom_checkbox(ui: &mut egui::Ui, checked: &mut bool, palette: &Color
                 rect_inset,
                 rounding,
                 egui::Stroke::new(1.5, palette.border_dashed),
+                egui::StrokeKind::Middle,
             );
         }
     }
