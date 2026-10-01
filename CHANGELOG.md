@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.2](https://github.com/cook-md/sync-agent/compare/v0.11.1...v0.11.2) (2026-10-01)
+
+
+### Bug Fixes
+
+* say sync needs Cook Basic in the welcome window and README ([18b919c](https://github.com/cook-md/sync-agent/commit/18b919c817d2587f3b19a090fe3e7cd8c9156aea))
+* say sync needs Cook Basic in the welcome window and README ([a816bc4](https://github.com/cook-md/sync-agent/commit/a816bc4b8439873d0f0889c173febfeb0674ce52))
+
 ## [0.11.1](https://github.com/cook-md/sync-agent/compare/v0.11.0...v0.11.1) (2026-09-12)
 
 
