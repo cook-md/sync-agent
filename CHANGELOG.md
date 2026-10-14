@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.3](https://github.com/cook-md/sync-agent/compare/v0.11.2...v0.11.3) (2026-10-14)
+
+
+### Bug Fixes
+
+* **tray:** Subscribe opens /pricing?from=sync_agent with the account email ([73bc9ab](https://github.com/cook-md/sync-agent/commit/73bc9abb60b2a53a334ffda83030fe127f044470))
+
 ## [0.11.2](https://github.com/cook-md/sync-agent/compare/v0.11.1...v0.11.2) (2026-10-01)
 
 
