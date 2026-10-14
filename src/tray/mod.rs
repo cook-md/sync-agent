@@ -3,6 +3,7 @@
 // macOS/Windows use tray-icon (requires winit event loop)
 
 pub mod about;
+pub mod pricing_url;
 
 // Platform-specific menu module
 #[cfg(not(target_os = "linux"))]

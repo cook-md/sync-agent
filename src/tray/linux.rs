@@ -150,8 +150,10 @@ impl TrayState {
                 }
             }
             TrayEvent::Subscribe => {
-                if let Err(e) = open::that("https://cook.md/pricing") {
-                    error!("Failed to open cook.md/pricing: {}", e);
+                let email = self.auth_manager.get_session().and_then(|s| s.email);
+                let url = crate::tray::pricing_url::pricing_url(email.as_deref());
+                if let Err(e) = open::that(&url) {
+                    error!("Failed to open {url}: {}", e);
                 }
             }
             TrayEvent::CheckUpdates => {
