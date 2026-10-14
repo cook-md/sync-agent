@@ -255,9 +255,10 @@ impl SystemTray {
                         });
                     }
                     TrayEvent::Subscribe => {
+                        let email = auth_manager.get_session().and_then(|s| s.email);
                         // Spawn in separate thread to avoid blocking event loop
-                        std::thread::spawn(|| {
-                            let _ = open::that("https://cook.md/pricing");
+                        std::thread::spawn(move || {
+                            let _ = open::that(crate::tray::pricing_url::pricing_url(email.as_deref()));
                         });
                     }
                     TrayEvent::CheckUpdates => {
