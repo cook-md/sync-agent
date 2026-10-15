@@ -106,7 +106,7 @@ ksni = "0.2"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "shellapi", "winbase", "wincon", "fileapi", "processenv", "handleapi", "winnt"] }
 windows-service = "0.8"
-winreg = "0.55"
+winreg = "0.56"
 keyring = { version = "3", features = ["windows-native"] }
 # Windows uses tray-icon
 tray-icon = "0.25"
