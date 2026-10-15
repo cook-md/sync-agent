@@ -13,24 +13,17 @@ pub fn init_sentry() {
         .or_else(|| option_env!("SENTRY_DSN_EMBEDDED").map(String::from));
 
     if let Some(dsn) = dsn {
-        let guard = sentry::init((
-            dsn.as_str(),
-            ClientOptions {
-                release: Some(env!("CARGO_PKG_VERSION").into()),
-                environment: Some(
-                    if cfg!(debug_assertions) {
-                        "development"
-                    } else {
-                        "production"
-                    }
-                    .into(),
-                ),
-                attach_stacktrace: true,
-                sample_rate: 1.0,
-                traces_sample_rate: 0.1,
-                ..Default::default()
-            },
-        ));
+        let options = ClientOptions::new()
+            .release(env!("CARGO_PKG_VERSION"))
+            .environment(if cfg!(debug_assertions) {
+                "development"
+            } else {
+                "production"
+            })
+            .attach_stacktrace(true)
+            .sample_rate(1.0)
+            .traces_sample_rate(0.1);
+        let guard = sentry::init((dsn.as_str(), options));
 
         // Set up panic handler
         let default_panic = std::panic::take_hook();
