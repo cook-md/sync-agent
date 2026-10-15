@@ -91,7 +91,7 @@ libc = "0.2"
 
 # Platform-specific dependencies
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.26"
+cocoa = "0.27"
 objc = "0.2"
 core-foundation = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
