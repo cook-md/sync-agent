@@ -74,7 +74,7 @@ base64 = "0.23"
 semver = { version = "1", features = ["serde"] }
 open = "5"
 rfd = "0.15"
-dark-light = "2.0"
+dark-light = "3.0"
 notify-rust = "4"
 
 # GUI for welcome screen
