@@ -42,7 +42,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 
 # Networking
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 url = "2"
 urlencoding = "2"
 futures-util = "0.3"
