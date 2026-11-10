@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.4](https://github.com/cook-md/sync-agent/compare/v0.11.3...v0.11.4) (2026-11-10)
+
+
+### Miscellaneous Chores
+
+* **deps:** auto-launch 0.6, tray-icon 0.26, dark-light 3, jsonwebtoken 11 ([#139](https://github.com/cook-md/sync-agent/issues/139)) ([eea9be6](https://github.com/cook-md/sync-agent/commit/eea9be64e5a55d33f00618ba30ac4606c7e7f570))
+
 ## [0.11.3](https://github.com/cook-md/sync-agent/compare/v0.11.2...v0.11.3) (2026-10-14)
 
 
