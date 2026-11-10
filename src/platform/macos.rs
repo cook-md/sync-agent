@@ -1,6 +1,6 @@
 use super::{PlatformIntegration, ThemeChange, ThemeWatcher};
 use crate::error::{Result, SyncError};
-use auto_launch::AutoLaunchBuilder;
+use auto_launch::{AutoLaunchBuilder, MacOSLaunchMode};
 use log::{debug, error, info};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
@@ -15,7 +15,7 @@ impl PlatformIntegration for MacOSIntegration {
             .set_app_name(app_name)
             .set_app_path(app_path)
             .set_args(&["daemon"])
-            .set_use_launch_agent(true) // Use LaunchAgent on macOS
+            .set_macos_launch_mode(MacOSLaunchMode::LaunchAgent)
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -31,7 +31,7 @@ impl PlatformIntegration for MacOSIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(app_path.to_str().unwrap())
-            .set_use_launch_agent(true)
+            .set_macos_launch_mode(MacOSLaunchMode::LaunchAgent)
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
@@ -47,7 +47,7 @@ impl PlatformIntegration for MacOSIntegration {
         let auto = AutoLaunchBuilder::new()
             .set_app_name(app_name)
             .set_app_path(app_path.to_str().unwrap())
-            .set_use_launch_agent(true)
+            .set_macos_launch_mode(MacOSLaunchMode::LaunchAgent)
             .build()
             .map_err(|e| SyncError::Platform(format!("Failed to create auto-launch: {e}")))?;
 
