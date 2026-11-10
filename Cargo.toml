@@ -32,7 +32,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-auto-launch = "0.5"
+auto-launch = "0.6"
 
 # System tray (platform-specific in platform dependencies below)
 image = "0.25"
@@ -42,7 +42,7 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 
 # Networking
 reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"] }
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 url = "2"
 urlencoding = "2"
 futures-util = "0.3"
@@ -74,7 +74,7 @@ base64 = "0.23"
 semver = { version = "1", features = ["serde"] }
 open = "5"
 rfd = "0.15"
-dark-light = "2.0"
+dark-light = "3.0"
 notify-rust = "4"
 
 # GUI for welcome screen
@@ -96,7 +96,7 @@ objc = "0.2"
 core-foundation = "0.10"
 keyring = { version = "3", features = ["apple-native"] }
 # macOS uses tray-icon
-tray-icon = "0.25"
+tray-icon = "0.26"
 winit = "0.30"
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -109,7 +109,7 @@ windows-service = "0.8"
 winreg = "0.56"
 keyring = { version = "3", features = ["windows-native"] }
 # Windows uses tray-icon
-tray-icon = "0.25"
+tray-icon = "0.26"
 winit = "0.30"
 
 [target.'cfg(windows)'.build-dependencies]
