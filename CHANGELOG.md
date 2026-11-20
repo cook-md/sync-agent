@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.5](https://github.com/cook-md/sync-agent/compare/v0.11.4...v0.11.5) (2026-11-20)
+
+
+### Miscellaneous Chores
+
+* release 0.11.5 (ksni 0.3, rfd 0.18, dependency updates) ([7a0d105](https://github.com/cook-md/sync-agent/commit/7a0d10538d711f94ae2b60ab1da3032118018359))
+
 ## [0.11.4](https://github.com/cook-md/sync-agent/compare/v0.11.3...v0.11.4) (2026-11-10)
 
 
