@@ -73,7 +73,7 @@ uuid = { version = "1", features = ["v4", "serde"] }
 base64 = "0.23"
 semver = { version = "1", features = ["serde"] }
 open = "5"
-rfd = "0.15"
+rfd = "0.18"
 dark-light = "3.0"
 notify-rust = "4"
 
