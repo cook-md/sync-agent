@@ -522,11 +522,9 @@ impl SystemTray {
 
         let tray = CookSyncTray::new(Arc::clone(&self.state));
 
-        // Spawn the tray service
-        let service = ksni::TrayService::new(tray);
-        // Get handle BEFORE spawning so we can signal menu updates
-        let handle = service.handle();
-        service.spawn();
+        // Spawn the tray service; the handle signals ksni of menu updates
+        let handle = ksni::blocking::TrayMethods::spawn(tray)
+            .map_err(|e| SyncError::Tray(format!("Failed to start ksni tray service: {e}")))?;
 
         info!("ksni tray service started");
 
@@ -548,7 +546,7 @@ impl SystemTray {
         Ok(())
     }
 
-    fn start_status_updater(&self, handle: ksni::Handle<CookSyncTray>) {
+    fn start_status_updater(&self, handle: ksni::blocking::Handle<CookSyncTray>) {
         let sync_manager = Arc::clone(&self.state.sync_manager);
         let auth_manager = Arc::clone(&self.state.auth_manager);
         let config = Arc::clone(&self.state.config);
