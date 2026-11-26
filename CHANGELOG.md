@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.6](https://github.com/cook-md/sync-agent/compare/v0.11.5...v0.11.6) (2026-11-26)
+
+
+### Bug Fixes
+
+* keep welcome screen open until browser sign-in completes ([6542728](https://github.com/cook-md/sync-agent/commit/65427285083f0bd63fc70d6f2e585fbf53f19588))
+* use template tray icon on macOS ([64324c8](https://github.com/cook-md/sync-agent/commit/64324c8bd85835f98b2f1e2716019a404369416e))
+
 ## [0.11.5](https://github.com/cook-md/sync-agent/compare/v0.11.4...v0.11.5) (2026-11-20)
 
 
