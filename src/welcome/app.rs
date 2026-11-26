@@ -125,6 +125,11 @@ impl eframe::App for WelcomeApp {
                             self.state.start_browser_login();
                         }
 
+                        if steps_response.skip_login_clicked {
+                            info!("Login skipped on welcome screen");
+                            self.state.skip_login();
+                        }
+
                         // Update state from login status (check for changes from background thread)
                         self.state.update_from_login_status();
                         ctx.request_repaint(); // Keep updating UI while login is in progress
@@ -139,8 +144,8 @@ impl eframe::App for WelcomeApp {
                         if render_action_buttons(ui, &self.state, &self.palette) {
                             // Save the result before closing
                             if let Ok(mut result) = self.result_ref.lock() {
-                                // Login already happened, so we only need to pass directory and preferences
-                                result.login_requested = false; // Not needed anymore since we logged in
+                                // Login either completed here or was skipped (tray menu offers it later)
+                                result.login_requested = false;
                                 result.recipes_dir = self.state.recipes_dir.clone();
                                 result.auto_start = self.state.auto_start;
                                 result.auto_update = self.state.auto_update;

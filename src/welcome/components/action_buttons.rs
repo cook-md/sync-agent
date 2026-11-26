@@ -20,6 +20,11 @@ pub fn render_action_buttons(
             if button_response.clicked() {
                 clicked = true;
             }
+        } else if state.is_step1_in_progress() && !state.is_step1_complete() {
+            let button_response =
+                style::action_button_disabled(ui, "Waiting for sign-in...", palette);
+            button_response
+                .on_hover_text("Finish signing in in your browser, or choose \"Skip for now\"");
         } else {
             // Disabled button with Figma styling (#F9F8F6 bg, orange text)
             let button_response =

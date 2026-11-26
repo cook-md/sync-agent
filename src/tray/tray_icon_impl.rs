@@ -102,10 +102,14 @@ impl SystemTray {
 
         // Create tray icon
         debug!("Building tray icon...");
-        let tray_icon = TrayIconBuilder::new()
+        let builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu.menu.clone()))
-            .with_tooltip("Cook Sync")
-            .with_icon(icon)
+            .with_tooltip("Cook Sync");
+        #[cfg(target_os = "macos")]
+        let builder = builder.with_icon_templated(icon);
+        #[cfg(not(target_os = "macos"))]
+        let builder = builder.with_icon(icon);
+        let tray_icon = builder
             .build()
             .map_err(|e| SyncError::Tray(format!("Failed to create tray icon: {e}")))?;
         debug!("Tray icon created successfully");
@@ -132,8 +136,11 @@ impl SystemTray {
     pub fn run(self) -> Result<()> {
         let event_loop_proxy = self.event_loop.create_proxy();
 
-        // Start theme watcher if available
-        self.start_theme_watcher(event_loop_proxy.clone());
+        // Template icons are recoloured by macOS itself; elsewhere swap the
+        // black/white icon when the system theme changes.
+        if !ICON_AS_TEMPLATE {
+            self.start_theme_watcher(event_loop_proxy.clone());
+        }
 
         // Trigger immediate status update so user sees their login/folder status right away
         event_loop_proxy.send_event(TrayEvent::UpdateStatus).ok();
@@ -409,7 +416,7 @@ impl SystemTray {
                                 display_status
                             );
                             if let Ok(new_icon) = load_icon_with_status(display_status) {
-                                let _ = state.tray_icon.lock().unwrap().set_icon(Some(new_icon));
+                                let _ = set_tray_icon(&state.tray_icon.lock().unwrap(), new_icon);
                             }
                             *last_status_guard = display_status;
                         }
@@ -431,7 +438,7 @@ impl SystemTray {
                         match load_icon_for_theme(current_status, is_dark) {
                             Ok(new_icon) => {
                                 if let Err(e) =
-                                    state.tray_icon.lock().unwrap().set_icon(Some(new_icon))
+                                    set_tray_icon(&state.tray_icon.lock().unwrap(), new_icon)
                                 {
                                     error!("Failed to set new icon: {:?}", e);
                                 } else {
@@ -609,28 +616,32 @@ fn find_installed_icon(icon_name: &str) -> Option<std::path::PathBuf> {
         .find(|p| p.exists())
 }
 
-/// Adds a red error indicator dot to the icon
+/// Adds a red error indicator dot to the icon, separated from the logo by a
+/// transparent gap so it stays visible when drawn as a monochrome template
+/// image on macOS.
 fn add_error_dot(rgba_img: &mut image::RgbaImage, width: u32, height: u32) {
     // Draw status dot (proportional to icon size, slightly bigger)
     let dot_size = (width.min(height) / 4).max(8);
     let dot_offset = dot_size + 1;
+    let gap = (dot_size as f32 / 8.0).max(1.0);
 
-    for dy in 0..dot_size {
-        for dx in 0..dot_size {
-            let x = width - dot_offset + dx;
-            let y = height - dot_offset + dy;
+    let radius = dot_size as f32 / 2.0;
+    let cx = (width - dot_offset) as f32 + radius;
+    let cy = (height - dot_offset) as f32 + radius;
+    let outer = radius + gap;
 
-            // Make it a circle
-            let center = dot_size as f32 / 2.0;
-            let dist = ((dx as f32 - center).powi(2) + (dy as f32 - center).powi(2)).sqrt();
-
-            if dist <= center {
-                if let Some(pixel) = rgba_img.get_pixel_mut_checked(x, y) {
-                    pixel[0] = 255; // R
-                    pixel[1] = 0; // G
-                    pixel[2] = 0; // B
-                    pixel[3] = 255; // A
-                }
+    let x0 = (cx - outer).floor().max(0.0) as u32;
+    let y0 = (cy - outer).floor().max(0.0) as u32;
+    for y in y0..height {
+        for x in x0..width {
+            let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
+            let Some(pixel) = rgba_img.get_pixel_mut_checked(x, y) else {
+                continue;
+            };
+            if dist <= radius {
+                *pixel = image::Rgba([255, 0, 0, 255]);
+            } else if dist <= outer {
+                *pixel = image::Rgba([0, 0, 0, 0]);
             }
         }
     }
@@ -664,14 +675,30 @@ fn confirm_folder_switch(previous: Option<&Path>, new: &Path) -> bool {
         == rfd::MessageDialogResult::Yes
 }
 
+/// On macOS the icon is drawn as a template image: only its alpha channel is
+/// used and the system tints it to match the menu bar. The menu bar's tint
+/// follows the wallpaper, not just the light/dark appearance setting, so
+/// picking a black or white icon from the appearance alone is unreliable.
+const ICON_AS_TEMPLATE: bool = cfg!(target_os = "macos");
+
+fn set_tray_icon(tray: &TrayIcon, icon: Icon) -> tray_icon::Result<()> {
+    #[cfg(target_os = "macos")]
+    {
+        tray.set_icon_templated(Some(icon))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        tray.set_icon(Some(icon))
+    }
+}
+
 fn load_icon() -> Result<Icon> {
     load_icon_with_status(SyncStatus::Starting)
 }
 
 fn load_icon_with_status(status: SyncStatus) -> Result<Icon> {
-    // Detect if we're in dark mode
-    let platform = crate::platform::get_platform();
-    let is_dark_mode = platform.is_dark_mode();
+    // Template icons ignore colour, so the theme only matters elsewhere
+    let is_dark_mode = !ICON_AS_TEMPLATE && crate::platform::get_platform().is_dark_mode();
     load_icon_for_theme(status, is_dark_mode)
 }
 
@@ -873,4 +900,51 @@ fn load_icon_for_theme(status: SyncStatus, is_dark_mode: bool) -> Result<Icon> {
         icon_name,
         icon_paths.len()
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn load_rgba(bytes: &[u8]) -> image::RgbaImage {
+        image::load_from_memory(bytes).unwrap().to_rgba8()
+    }
+
+    #[test]
+    fn tray_icons_have_transparent_background() {
+        // macOS draws the tray icon as a template image (alpha channel only),
+        // so an opaque background would render as a solid square.
+        for bytes in [
+            include_bytes!("../../assets/icon_black.png").as_slice(),
+            include_bytes!("../../assets/icon_blacktray_32.png").as_slice(),
+        ] {
+            let img = load_rgba(bytes);
+            let (w, h) = img.dimensions();
+            for (x, y) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)] {
+                assert_eq!(
+                    img.get_pixel(x, y)[3],
+                    0,
+                    "corner ({x},{y}) not transparent"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn error_dot_is_separated_by_transparent_ring() {
+        // In template mode colour is discarded, so the dot must stay
+        // distinguishable from the logo by a transparent gap around it.
+        let mut img = image::RgbaImage::from_pixel(64, 64, image::Rgba([0, 0, 0, 255]));
+        add_error_dot(&mut img, 64, 64);
+
+        let dot_size = 16u32;
+        let center = 64 - (dot_size + 1) + dot_size / 2;
+        assert_eq!(img.get_pixel(center, center)[3], 255, "dot centre opaque");
+        // Just outside the dot, towards the logo
+        let ring = center - dot_size / 2 - 1;
+        assert_eq!(img.get_pixel(ring, center)[3], 0, "gap left of dot");
+        assert_eq!(img.get_pixel(center, ring)[3], 0, "gap above dot");
+        // Far from the dot the logo is untouched
+        assert_eq!(img.get_pixel(10, 10)[3], 255);
+    }
 }
