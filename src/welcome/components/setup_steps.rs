@@ -36,6 +36,7 @@ pub fn render_setup_steps(
 #[derive(Default)]
 pub struct SetupStepsResponse {
     pub login_clicked: bool,
+    pub skip_login_clicked: bool,
     pub select_directory_clicked: bool,
 }
 
@@ -98,12 +99,14 @@ fn render_step1_auth(
             if state.is_logging_in && !state.is_logged_in() {
                 // Login in progress
                 render_login_in_progress(ui, palette);
+                render_login_retry_links(ui, state, palette, response);
             } else if state.is_logged_in() {
                 // Logged in - show email with change link
                 render_logged_in_state(ui, state, palette, response);
             } else {
                 // Not logged in - show login button
                 render_login_button(ui, palette, response);
+                render_skip_login(ui, state, palette, response);
             }
 
             // Show error if any
@@ -140,6 +143,43 @@ fn render_login_in_progress(ui: &mut egui::Ui, _palette: &ColorPalette) {
                     );
                 });
             });
+    });
+}
+
+/// While the browser sign-in is pending, let the user reopen the browser
+/// (e.g. the tab was closed or landed on the wrong page) or defer sign-in.
+fn render_login_retry_links(
+    ui: &mut egui::Ui,
+    state: &WelcomeState,
+    palette: &ColorPalette,
+    response: &mut SetupStepsResponse,
+) {
+    ui.add_space(spacing::SMALL);
+    ui.vertical_centered(|ui| {
+        if style::text_link(ui, "Didn't work? Open browser again", palette).clicked() {
+            response.login_clicked = true;
+        }
+    });
+    render_skip_login(ui, state, palette, response);
+}
+
+fn render_skip_login(
+    ui: &mut egui::Ui,
+    state: &WelcomeState,
+    palette: &ColorPalette,
+    response: &mut SetupStepsResponse,
+) {
+    ui.add_space(spacing::SMALL);
+    ui.vertical_centered(|ui| {
+        if state.login_skipped {
+            ui.label(
+                egui::RichText::new("You can sign in later from the tray menu")
+                    .size(typography::BODY_REGULAR_SIZE)
+                    .color(palette.text_secondary),
+            );
+        } else if style::text_link(ui, "Skip for now", palette).clicked() {
+            response.skip_login_clicked = true;
+        }
     });
 }
 

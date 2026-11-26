@@ -4,6 +4,7 @@ use crate::auth::AuthManager;
 use crate::config::{self, settings::Settings};
 use crate::error::Result;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,11 @@ pub struct WelcomeState {
     pub user_email: Option<String>,
     pub login_error: Option<String>,
     pub is_logging_in: bool,
+    /// User chose to sign in later from the tray menu
+    pub login_skipped: bool,
+    /// Id of the latest browser login attempt; results from older
+    /// (abandoned) attempts are ignored
+    login_attempt: Arc<AtomicU64>,
 
     // Directory selection state
     pub recipes_dir: Option<PathBuf>,
@@ -43,6 +49,8 @@ impl Default for WelcomeState {
             user_email: None,
             login_error: None,
             is_logging_in: false,
+            login_skipped: false,
+            login_attempt: Arc::new(AtomicU64::new(0)),
             recipes_dir: None,
             directory_error: None,
             preferences_expanded: false, // Hidden until Steps 1 & 2 complete (per Figma)
@@ -90,8 +98,14 @@ impl WelcomeState {
 
     /// Check if all required setup steps are complete
     pub fn is_setup_complete(&self) -> bool {
-        // Accept both logged in OR login in progress
-        (self.is_logged_in() || self.is_logging_in) && self.recipes_dir.is_some()
+        // A pending login does not count: the browser callback is served by
+        // this process, so closing the window would abandon the sign-in.
+        self.is_step1_complete() && self.recipes_dir.is_some()
+    }
+
+    /// Defer sign-in to the tray menu
+    pub fn skip_login(&mut self) {
+        self.login_skipped = true;
     }
 
     /// Check if the user can proceed (setup complete)
@@ -99,34 +113,51 @@ impl WelcomeState {
         self.is_setup_complete()
     }
 
+    /// Start a new login attempt and mark it in progress. Returns its id.
+    pub fn begin_login_attempt(&mut self) -> u64 {
+        // Signing in after "Skip for now" makes the step required again, so
+        // the window can't close while the browser callback is pending.
+        self.login_skipped = false;
+        let id = self.login_attempt.fetch_add(1, Ordering::SeqCst) + 1;
+        if let Ok(mut status) = self.login_status.lock() {
+            *status = LoginStatus::InProgress;
+        }
+        id
+    }
+
+    /// Record the outcome of a login attempt. A success from any attempt is
+    /// kept (its session is already saved); a failure only counts if it comes
+    /// from the latest attempt, since an older one was superseded by
+    /// "Open browser again".
+    pub fn finish_login_attempt(&self, id: u64, result: LoginStatus) {
+        if let Ok(mut status) = self.login_status.lock() {
+            if matches!(*status, LoginStatus::Success { .. }) {
+                return;
+            }
+            let is_latest = self.login_attempt.load(Ordering::SeqCst) == id;
+            if is_latest || matches!(result, LoginStatus::Success { .. }) {
+                *status = result;
+            }
+        }
+    }
+
     /// Initiate browser login (called when user clicks login button)
     pub fn start_browser_login(&mut self) {
-        let login_status = self.login_status.clone();
+        let id = self.begin_login_attempt();
+        self.is_logging_in = true;
+        self.login_error = None;
+        let state = self.clone();
 
         // Spawn login in background thread
         std::thread::spawn(move || {
-            // Create tokio runtime for async login
-            let rt = tokio::runtime::Runtime::new().unwrap();
-            rt.block_on(async {
-                // Set status to in progress
-                if let Ok(mut status) = login_status.lock() {
-                    *status = LoginStatus::InProgress;
-                }
-
-                // Perform the actual login
-                match perform_browser_login().await {
-                    Ok(email) => {
-                        if let Ok(mut status) = login_status.lock() {
-                            *status = LoginStatus::Success { email };
-                        }
-                    }
-                    Err(e) => {
-                        if let Ok(mut status) = login_status.lock() {
-                            *status = LoginStatus::Error(e.to_string());
-                        }
-                    }
-                }
-            });
+            let result = match tokio::runtime::Runtime::new() {
+                Ok(rt) => match rt.block_on(perform_browser_login()) {
+                    Ok(email) => LoginStatus::Success { email },
+                    Err(e) => LoginStatus::Error(e.to_string()),
+                },
+                Err(e) => LoginStatus::Error(e.to_string()),
+            };
+            state.finish_login_attempt(id, result);
         });
     }
 
@@ -156,7 +187,7 @@ impl WelcomeState {
 
     /// Check if step 1 (authentication) is complete
     pub fn is_step1_complete(&self) -> bool {
-        self.is_logged_in() || self.is_logging_in
+        self.is_logged_in() || self.login_skipped
     }
 
     /// Check if step 1 is in progress
@@ -261,6 +292,91 @@ mod tests {
         assert!(!state.is_logged_in());
         assert!(!state.is_logging_in);
         assert_eq!(state.login_error, Some("Connection failed".to_string()));
+    }
+
+    #[test]
+    fn test_login_in_progress_does_not_complete_setup() {
+        // Regression: "Get Started" used to be enabled while the browser
+        // sign-in was still pending, and closing the window killed the
+        // callback listener so the sign-in could never finish.
+        let mut state = WelcomeState::default();
+        state.set_recipes_dir(PathBuf::from("/tmp/recipes"));
+        if let Ok(mut status) = state.login_status.lock() {
+            *status = LoginStatus::InProgress;
+        }
+        state.update_from_login_status();
+
+        assert!(state.is_step1_in_progress());
+        assert!(!state.is_step1_complete());
+        assert!(!state.can_proceed());
+    }
+
+    #[test]
+    fn test_skip_login_allows_proceeding() {
+        let mut state = WelcomeState::default();
+        state.set_recipes_dir(PathBuf::from("/tmp/recipes"));
+        assert!(!state.can_proceed());
+
+        state.skip_login();
+        assert!(state.is_step1_complete());
+        assert!(state.can_proceed());
+    }
+
+    #[test]
+    fn test_stale_login_attempt_result_is_ignored() {
+        let mut state = WelcomeState::default();
+        let first = state.begin_login_attempt();
+        let second = state.begin_login_attempt();
+
+        // The abandoned first attempt times out after the retry started
+        state.finish_login_attempt(first, LoginStatus::Error("Authentication timeout".into()));
+        assert!(matches!(
+            *state.login_status.lock().unwrap(),
+            LoginStatus::InProgress
+        ));
+
+        state.finish_login_attempt(
+            second,
+            LoginStatus::Success {
+                email: "user@example.com".into(),
+            },
+        );
+        assert!(state.is_logged_in());
+    }
+
+    #[test]
+    fn test_login_after_skip_blocks_proceeding_until_done() {
+        let mut state = WelcomeState::default();
+        state.set_recipes_dir(PathBuf::from("/tmp/recipes"));
+        state.skip_login();
+        assert!(state.can_proceed());
+
+        // Changing their mind and signing in must not leave "Get Started"
+        // enabled while the browser callback is pending.
+        state.begin_login_attempt();
+        state.update_from_login_status();
+        assert!(!state.can_proceed());
+    }
+
+    #[test]
+    fn test_late_success_from_earlier_attempt_is_kept() {
+        // User clicked "Open browser again", but finished the sign-in in the
+        // first tab: its token is saved, so the welcome screen must say so.
+        let mut state = WelcomeState::default();
+        let first = state.begin_login_attempt();
+        let second = state.begin_login_attempt();
+
+        state.finish_login_attempt(
+            first,
+            LoginStatus::Success {
+                email: "user@example.com".into(),
+            },
+        );
+        assert!(state.is_logged_in());
+
+        // The retry later times out; that must not undo the success
+        state.finish_login_attempt(second, LoginStatus::Error("Authentication timeout".into()));
+        assert!(state.is_logged_in());
     }
 
     #[test]
